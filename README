@@ -1,0 +1,78 @@
+This code is a set of hash functions to support the paper "Hash-based Algorithms
+for Discretized Data" to be published in the SIAM Journal of Scientific 
+Computing". The publication details are below and in the Papers.bib file in bibtex
+format. 
+
+   Robey,R.N., Nicholaeff,D., and Robey,R.W. "Hash-Based Algorithms for Discretized Data", 
+   SIAM Journal of Scientific Computing, July 2013, Volume 35, Number 4, C346--C368
+
+   The pre-publication version has the LANL report number LA-UR-12-01566.
+
+This code has been released under an open-source Apache 2 license to
+encourage further development of hashing methods. See the LICENSE file for more
+information about the license and the use of this code.
+
+Through a web search we hope to gather statistics on the use of the method
+and its improvements and help to encourage more open technology transfer by LANL
+and other government research organizations. This can be thought of as analagous
+to journal article citations, but within software products. If code is not
+distributed with a software product, a reference should be provided in a text
+file so that attribution can be determined.
+
+Under this license, it is required to include a reference to this work. We
+request that each derivative work contain a reference to LANL Copyright 
+Disclosure C13002/LA-CC-12-022 so that this work’s impact can be roughly
+measured. In addition, it is requested that a modifier is included as in
+the following example:
+
+//<Uses | improves on | modified from> LANL Copyright Disclosure C13002/LA-CC-12-022
+
+This is LANL Copyright Disclosure C13002/LA-CC-12-022
+
+Authors: Bob Robey       XCP-2   brobey@lanl.gov
+         David Nicholaeff        dnic@lanl.gov, mtrxknight@aol.com
+         Rachel Robey            rnrobey@gmail.com
+
+This code uses autoconf/automake/libtool for builds. To build the code:
+
+./configure
+make
+
+There will be several executables built -- sort, sort2d, neigh, neigh2d, remap, remap2d, table
+
+Each executable runs all of the methods for the mesh operation. There is a controlling
+loop at the top of the main routine that users may want to modify for the algorithms
+to be run. Also, there is a random number seed for varying the problem setups that is
+normally off, but users may want to turn on for some investigations. Results do vary for
+different problems, but the pattern does not change significantly. Also, the OpenCL library
+looks for a GPU to use for the OpenCL code. This may need to be modified for your particular
+hardware.
+
+Output should look something like the following:
+
+    Sorting Performance Results
+
+Size,   	Qsort,    	Heapsort, 	Mergesort, 	Hash CPU, 	Hash GPU
+
+Max diff is 1 times min_diff
+1024,     	0.000105,	0.000168,	0.000123,	0.000010,	0.000294,
+2048,     	0.000223,	0.000353,	0.000262,	0.000020,	0.000330,
+4096,     	0.000493,	0.000781,	0.000573,	0.000040,	0.000400,
+8192,     	0.001036,	0.001683,	0.001135,	0.000079,	0.000610,
+16384,     	0.002242,	0.003470,	0.002613,	0.000161,	0.000934,
+32768,     	0.005360,	0.007348,	0.005469,	0.000415,	0.001535,
+65536,     	0.011800,	0.015796,	0.012560,	0.000800,	0.002629,
+131072,     	0.020707,	0.036958,	0.024513,	0.001561,	0.005294,
+262144,     	0.042710,	0.075466,	0.052864,	0.003751,	0.011301,
+524288,     	0.089662,	0.167398,	0.113505,	0.011855,	0.024291,
+1048576,     	0.185135,	0.407333,	0.249813,	0.026447,	0.018890,
+2097152,     	0.385789,	1.018970,	0.498638,	0.063970,	0.114473,
+4194304,     	0.818016,	2.475966,	1.052133,	0.141997,	0.246392,
+8388608,     	1.696586,	5.843146,	2.184568,	0.307373,	0.503904,
+
+Max diff is 2 times min_diff
+1024,     	0.000102,	0.000168,	0.000121,	0.000015,	0.000303,
+2048,     	0.000224,	0.000332,	0.000240,	0.000026,	0.000339,
+   ...
+   ...
+   ...
