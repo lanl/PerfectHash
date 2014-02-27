@@ -302,6 +302,8 @@ dnl ---------------------------------------------------------------
 dnl ---------------------------------------------------------------
 fi
 
+LIBS="${LIBS} -lm"
+
 if test ! -z "${RPATH_LIBS}"; then
    LIBS="${LIBS} ${RPATH_PREFIX}-rpath ${RPATH_PREFIX}${RPATH_LIBS}"
 fi
