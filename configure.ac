@@ -132,11 +132,83 @@ fi
 if test "${enable_opencl}" != "no"; then
   case "$host" in
     *linux*)
-      if test "`lspci | grep "VGA compatible controller" | grep nVidia | wc -l`" != "0"; then
+      found="no"
+      AC_CHECK_PROG(found, lspci, yes)
+      if test ! -z "${OPENCL_INCLUDE}" ; then 
+        AM_CPPFLAGS="${AM_CPPFLAGS} -I${OPENCL_INCLUDE}"
+        if test ! -z "${OPENCL_LIBS}" ; then
+          LIBS="${LIBS} -L${OPENCL_LIBS} -lOpenCL"
+          if test "${RPATH_LIBS}x" = "x"; then
+            RPATH_LIBS="${OPENCL_LIBS}"
+          else
+            RPATH_LIBS="${RPATH_LIBS}:${OPENCL_LIBS}"
+          fi
+        fi
+      elif test "$found" = "no"; then
+         found="no";
+         AC_CHECK_FILE(/projects/opt/cuda/cuda-5.5/include/CL/cl.h, AM_CPPFLAGS="${AM_CPPFLAGS} -I/projects/opt/cuda/cuda-5.5/include" && found="yes")
+         if test "$found" = "no"; then
+            AC_CHECK_FILE( /projects/opt/opencl1d2_additional_files/include/CL/cl.h, AM_CPPFLAGS="${AM_CPPFLAGS} -I/projects/opt/opencl1d2_additional_files/include" && found="yes")
+         fi
+         if test "$found" = "no"; then
+            AC_CHECK_FILE( /projects/opt/AMD_APP_SDK/AMDAPP-2.8/include/CL/cl.h, AM_CPPFLAGS="${AM_CPPFLAGS} -I/projects/opt/AMD_APP_SDK/AMDAPP-2.8/include" && found="yes")
+         fi
+         if test "$found" = "no"; then
+            AC_CHECK_FILE( /opt/intel/opencl-1.2-3.0.67279/include/CL/cl.h, AM_CPPFLAGS="${AM_CPPFLAGS} -I/opt/intel/opencl-1.2-3.0.67279/include" && found="yes")
+         fi
+         found="no"
+         if test "$found" = "no"; then
+           AC_CHECK_FILE(/usr/lib/libOpenCL.so, LIBS="${LIBS} -lOpenCL" && found="yes")
+           if test "${found}" = "yes"; then
+             if test "${RPATH_LIBS}x" = "x"; then
+               RPATH_LIBS="/usr/lib"
+             else
+               RPATH_LIBS="${RPATH_LIBS}:/usr/lib"
+             fi
+           fi
+         fi
+         if test "$found" = "no"; then
+           AC_CHECK_FILE(/usr/lib64/libOpenCL.so, LIBS="${LIBS} -lOpenCL" && found="yes")
+           if test "${found}" = "yes"; then
+             if test "${RPATH_LIBS}x" = "x"; then
+               RPATH_LIBS="/usr/lib64"
+             else
+               RPATH_LIBS="${RPATH_LIBS}:/usr/lib64"
+             fi
+           fi
+         fi
+         if test "$found" = "no"; then
+           AC_CHECK_FILE(/projects/opt/AMD_APP_SDK/AMDAPP-2.8/lib/x86_64/libOpenCL.so, LIBS="${LIBS} -L/projects/opt/AMD_APP_SDK/AMDAPP-2.8/lib/x86_64 -lOpenCL" && found="yes")
+           if test "${found}" = "yes"; then
+             if test "${RPATH_LIBS}x" = "x"; then
+               RPATH_LIBS="/projects/opt/AMD_APP_SDK/AMDAPP-2.8/lib/x86_64"
+             else
+               RPATH_LIBS="${RPATH_LIBS}:/projects/opt/AMD_APP_SDK/AMDAPP-2.8/lib/x86_64"
+             fi
+           fi
+         fi
+         if test "$found" = "no"; then
+           AC_CHECK_FILE(/opt/intel/opencl-1.2-3.0.67279/lib64/libOpenCL.so, LIBS="${LIBS} -L/opt/intel/opencl-1.2-3.0.67279/lib64 -L/opt/intel/opencl-1.2-3.0.67279/libmic" && found="yes")
+           if test "${found}" = "yes"; then
+             if test "${RPATH_LIBS}x" = "x"; then
+               RPATH_LIBS="/opt/intel/opencl-1.2-3.0.67279/lib64"
+             else
+               RPATH_LIBS="${RPATH_LIBS}:/opt/intel/opencl-1.2-3.0.67279/lib64"
+             fi
+           fi
+         fi
+      elif test "`lspci | grep "VGA compatible controller" | grep -i nVidia | wc -l`" != "0"; then
          found="no"
          AC_CHECK_FILE(/usr/local/NVIDIA_GPU_Computing_SDK/OpenCL/common/inc/CL/cl.h, AM_CPPFLAGS="${AM_CPPFLAGS} -I/usr/local/NVIDIA_GPU_Computing_SDK/OpenCL/common/inc" && found="yes")
          if test "$found" = "no"; then
            AC_CHECK_FILE(/usr/local/cuda/include/CL/cl.h, AM_CPPFLAGS="${AM_CPPFLAGS} -I/usr/local/cuda/include" && found="yes")
+         fi
+         if test "$found" = "no"; then
+           AC_CHECK_FILE(/projects/opt/cuda/cuda-5.5/include/CL/cl.h, AM_CPPFLAGS="${AM_CPPFLAGS} -I/projects/opt/cuda/cuda-5.5/include
+" && found="yes")
+	fi
+	if test "$found" = "no"; then
+           AC_CHECK_FILE( /projects/opt/opencl1d2_additional_files/include/CL/cl.h, AM_CPPFLAGS="${AM_CPPFLAGS} -I/projects/opt/opencl1d2_additional_files/include" && found="yes")
          fi
          if test "$found" = "no"; then
            AC_CHECK_FILE(/home/cuda/sdk4.0.13/OpenCL/common/inc/CL/cl.h, AM_CPPFLAGS="${AM_CPPFLAGS} -I/home/cuda/sdk4.0.13/OpenCL/common/inc" && found="yes")
@@ -152,19 +224,42 @@ if test "${enable_opencl}" != "no"; then
              fi
            fi
          fi
-      else
-         if test "`lspci | grep "VGA compatible controller" | grep ATI | wc -l`" != "0"; then 
-           found="no"
+         if test "$found" = "no"; then
+           AC_CHECK_FILE(/usr/lib64/libOpenCL.so, LIBS="${LIBS} -lOpenCL" && found="yes")
+           if test "${found}" = "yes"; then
+             if test "${RPATH_LIBS}x" = "x"; then
+               RPATH_LIBS="/usr/lib64"
+             else
+               RPATH_LIBS="${RPATH_LIBS}:/usr/lib64"
+             fi
+           fi
+         fi
+      elif test "`lspci | grep "VGA compatible controller" | grep ATI | wc -l`" != "0"; then 
+         found="no"
+         if test "$found" = "no"; then
            AC_CHECK_FILE(/home/opt/AMDAPP_v2.6/include/CL/cl.h, AM_CPPFLAGS="${AM_CPPFLAGS} -I/home/opt/AMDAPP_v2.6/include" && found="yes")
-           found="no"
-           if test "$found" = "no"; then
-             AC_CHECK_FILE(/home/opt/AMDAPP_v2.6/lib/x86_64/libOpenCL.so, LIBS="${LIBS} -L/home/opt/AMDAPP_v2.6/lib/x86_64 -lOpenCL" && found="yes")
-             if test "${found}" = "yes"; then
-               if test "${RPATH_LIBS}x" = "x"; then
-                 RPATH_LIBS="/home/opt/AMDAPP_v2.6/lib/x86_64"
-               else
-                 RPATH_LIBS="${RPATH_LIBS}:/home/opt/AMDAPP_v2.6/lib/x86_64"
-               fi
+         fi
+         if test "$found" = "no"; then
+           AC_CHECK_FILE(/projects/opt/AMD_APP_SDK/AMDAPP_v2.6/include/CL/cl.h, AM_CPPFLAGS="${AM_CPPFLAGS} -I/projects/opt/AMD_APP_SDK/AMDAPP_v2.6/include" && found="yes")
+         fi
+         found="no"
+         if test "$found" = "no"; then
+           AC_CHECK_FILE(/home/opt/AMDAPP_v2.6/lib/x86_64/libOpenCL.so, LIBS="${LIBS} -L/home/opt/AMDAPP_v2.6/lib/x86_64 -lOpenCL" && found="yes")
+           if test "${found}" = "yes"; then
+             if test "${RPATH_LIBS}x" = "x"; then
+               RPATH_LIBS="/home/opt/AMDAPP_v2.6/lib/x86_64"
+             else
+               RPATH_LIBS="${RPATH_LIBS}:/home/opt/AMDAPP_v2.6/lib/x86_64"
+             fi
+           fi
+         fi
+         if test "$found" = "no"; then
+           AC_CHECK_FILE(/projects/opt/AMD_APP_SDK/AMDAPP_v2.6/lib/x86_64/libOpenCL.so, LIBS="${LIBS} -L/projects/opt/AMD_APP_SDK/AMDAPP_v2.6/lib/x86_64 -lOpenCL" && found="yes")
+           if test "${found}" = "yes"; then
+             if test "${RPATH_LIBS}x" = "x"; then
+               RPATH_LIBS="/projects/opt/AMD_APP_SDK/AMDAPP_v2.6/lib/x86_64"
+             else
+               RPATH_LIBS="${RPATH_LIBS}:/projects/opt/AMD_APP_SDK/AMDAPP_v2.6/lib/x86_64"
              fi
            fi
          fi
@@ -186,7 +281,7 @@ dnl ---------------------------------------------------------------
 
    AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
       [
-       [#ifdef __APPLE_CC__block]
+       [#ifdef __APPLE_CC__]
        [#include <OpenCL/OpenCL.h>]
        [#else]
        [#include <CL/cl.h>]
