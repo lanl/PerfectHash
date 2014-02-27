@@ -1,5 +1,7 @@
 bin_PROGRAMS = sort sort2d remap remap2d neigh neigh2d table
 
+ACLOCAL_AMFLAGS = -I m4
+
 SUBDIRS = kdtree
 
 sort_C_SRCS = sort.c gpu.c

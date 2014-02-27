@@ -4,6 +4,8 @@ AC_CONFIG_AUX_DIR(./config)
 
 AM_INIT_AUTOMAKE([foreign])
 
+AC_CONFIG_MACRO_DIR([m4])
+
 AC_CONFIG_HEADER(config.h)
 
 dnl
@@ -50,7 +52,7 @@ AC_PROG_CXX
 AM_PROG_CC_C_O
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
-AC_PROG_RANLIB
+dnl AC_PROG_RANLIB
 AC_PROG_LIBTOOL
 
 # Checks for header files
@@ -115,7 +117,7 @@ if test "${enable_mpe}" != "no"; then
         AC_CHECK_FILE(${HOME}/mpe/include/mpe.h, MPEHOME="${HOME}/mpe" && FOUND="yes")
       fi
     else
-      AC_CHECK_FILE(${MPEHOME}/include/mpe.h, INCLUDES="${INCLUDES} -I${MPEHOME}/include")
+      AC_CHECK_FILE(${MPEHOME}/include/mpe.h, AM_CPPFLAGS="${AM_CPPFLAGS} -I${MPEHOME}/include")
       LIBS="${LIBS} -L${MPEHOME}/lib -lmpe_nompi -L/usr/X11/lib -lX11 -lm"
       AC_DEFINE([USE_MPE],"yes","Use MPE for graphics")
       if test "${RPATH_LIBS}x" = "x"; then
@@ -132,12 +134,12 @@ if test "${enable_opencl}" != "no"; then
     *linux*)
       if test "`lspci | grep "VGA compatible controller" | grep nVidia | wc -l`" != "0"; then
          found="no"
-         AC_CHECK_FILE(/usr/local/NVIDIA_GPU_Computing_SDK/OpenCL/common/inc/CL/cl.h, INCLUDES="${INCLUDES} -I/usr/local/NVIDIA_GPU_Computing_SDK/OpenCL/common/inc" && found="yes")
+         AC_CHECK_FILE(/usr/local/NVIDIA_GPU_Computing_SDK/OpenCL/common/inc/CL/cl.h, AM_CPPFLAGS="${AM_CPPFLAGS} -I/usr/local/NVIDIA_GPU_Computing_SDK/OpenCL/common/inc" && found="yes")
          if test "$found" = "no"; then
-           AC_CHECK_FILE(/usr/local/cuda/include/CL/cl.h, INCLUDES="${INCLUDES} -I/usr/local/cuda/include" && found="yes")
+           AC_CHECK_FILE(/usr/local/cuda/include/CL/cl.h, AM_CPPFLAGS="${AM_CPPFLAGS} -I/usr/local/cuda/include" && found="yes")
          fi
          if test "$found" = "no"; then
-           AC_CHECK_FILE(/home/cuda/sdk4.0.13/OpenCL/common/inc/CL/cl.h, INCLUDES="${INCLUDES} -I/home/cuda/sdk4.0.13/OpenCL/common/inc" && found="yes")
+           AC_CHECK_FILE(/home/cuda/sdk4.0.13/OpenCL/common/inc/CL/cl.h, AM_CPPFLAGS="${AM_CPPFLAGS} -I/home/cuda/sdk4.0.13/OpenCL/common/inc" && found="yes")
          fi
          found="no"
          if test "$found" = "no"; then
@@ -153,7 +155,7 @@ if test "${enable_opencl}" != "no"; then
       else
          if test "`lspci | grep "VGA compatible controller" | grep ATI | wc -l`" != "0"; then 
            found="no"
-           AC_CHECK_FILE(/home/opt/AMDAPP_v2.6/include/CL/cl.h, INCLUDES="${INCLUDES} -I/home/opt/AMDAPP_v2.6/include" && found="yes")
+           AC_CHECK_FILE(/home/opt/AMDAPP_v2.6/include/CL/cl.h, AM_CPPFLAGS="${AM_CPPFLAGS} -I/home/opt/AMDAPP_v2.6/include" && found="yes")
            found="no"
            if test "$found" = "no"; then
              AC_CHECK_FILE(/home/opt/AMDAPP_v2.6/lib/x86_64/libOpenCL.so, LIBS="${LIBS} -L/home/opt/AMDAPP_v2.6/lib/x86_64 -lOpenCL" && found="yes")
@@ -178,7 +180,7 @@ dnl ---------------------------------------------------------------
    AC_MSG_CHECKING(for OpenCL double type)
 
    SAVE_C_FLAGS=$CFLAGS
-   CFLAGS="$CFLAGS $INCLUDES"
+   CFLAGS="$CFLAGS $AM_CPPFLAGS"
 
    AC_LANG([C])
 
@@ -211,7 +213,7 @@ fi
 
 AC_SUBST(CC)
 AC_SUBST(CFLAGS)
-AC_SUBST(INCLUDES)
+AC_SUBST(AM_CPPFLAGS)
 AC_SUBST(LIBS)
 
 AC_CONFIG_FILES([Makefile])
