@@ -4,7 +4,7 @@ PerfectHash
 A perfect hash code for CPUs and GPUs using OpenCL
 
 This code is a set of hash functions to support the paper "Hash-based Algorithms
-for Discretized Data" to be published in the SIAM Journal of Scientific 
+for Discretized Data to be published in the SIAM Journal of Scientific 
 Computing". The publication details are below and in the Papers.bib file in bibtex
 format. 
 
