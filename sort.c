@@ -88,7 +88,15 @@ cl_mem parallelHash( uint length, cl_mem arr, double min_diff, double max_diff, 
 double* hashsort( uint length, double *arr, double min_diff, double min_val, double max_val );
 double generate_array( uint size, double *ptr, double mindx, double maxdx, double min, double *max );
 
-int compare (const void * a, const void * b) { return ( *(double*)a - *(double*)b ); }
+//int compare (const void * a, const void * b) { return ( *(double*)a - *(double*)b ); }
+
+int compare (const void *a, const void *b)
+{
+  const double *da = (const double *) a;
+  const double *db = (const double *) b;
+
+  return (*da > *db) - (*da < *db);
+}
 
 int main (int argc, const char * argv[]) 
 {
