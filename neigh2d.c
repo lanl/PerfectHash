@@ -457,11 +457,12 @@ struct neighbor2d *neighbors2d_hashcpu( uint ncells, int mesh_size, int levmx, i
 
    int **hash = (int **)genmatrix(jmaxsize, imaxsize, sizeof(int));
 
-   for (int jj = 0; jj<jmaxsize; jj++){
-      for (int ii = 0; ii<imaxsize; ii++){
-         hash[jj][ii]=-1;
-      }
-   }
+   // Not needed -- for debug
+   //for (int jj = 0; jj<jmaxsize; jj++){
+   //   for (int ii = 0; ii<imaxsize; ii++){
+   //      hash[jj][ii]=-1;
+   //   }
+   //}
 
    for(int ic=0; ic<ncells; ic++){
       int lev = level[ic];
@@ -513,13 +514,13 @@ cl_mem neighbors2d_hashgpu( uint ncells, int mesh_size, int levmx, cl_mem i_buff
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
 
    /******************
-    * Init to -1
+    * Init to -1 -- not needed, for debug
     ******************/
 
-   error = clSetKernelArg(init_kernel, 0, sizeof(cl_uint), &hash_size);
-   if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-   error = clSetKernelArg(init_kernel, 1, sizeof(cl_mem), (void*)&hash_buffer);
-   if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+   //error = clSetKernelArg(init_kernel, 0, sizeof(cl_uint), &hash_size);
+   //if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+   //error = clSetKernelArg(init_kernel, 1, sizeof(cl_mem), (void*)&hash_buffer);
+   //if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
 
    size_t global_work_size[1];
    size_t local_work_size[1];
@@ -527,10 +528,10 @@ cl_mem neighbors2d_hashgpu( uint ncells, int mesh_size, int levmx, cl_mem i_buff
    local_work_size[0] = TILE_SIZE;
    global_work_size[0] = ((hash_size+local_work_size[0]-1)/local_work_size[0])*local_work_size[0];
 
-   cl_event hash_init_event;
+   //cl_event hash_init_event;
 
-   error = clEnqueueNDRangeKernel(queue, init_kernel, 1, 0, global_work_size, local_work_size, 0, NULL, &hash_init_event);
-   if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+   //error = clEnqueueNDRangeKernel(queue, init_kernel, 1, 0, global_work_size, local_work_size, 0, NULL, &hash_init_event);
+   //if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
 
    global_work_size[0] = ((ncells+local_work_size[0]-1)/local_work_size[0])*local_work_size[0];
 
@@ -593,12 +594,12 @@ cl_mem neighbors2d_hashgpu( uint ncells, int mesh_size, int levmx, cl_mem i_buff
 
    clWaitForEvents(1,&calc_neighbor2d_event);
 
-   clGetEventProfilingInfo(hash_init_event, CL_PROFILING_COMMAND_START, sizeof(gpu_time_start), &gpu_time_start, NULL);
-   clGetEventProfilingInfo(hash_init_event, CL_PROFILING_COMMAND_END, sizeof(gpu_time_end), &gpu_time_end, NULL);
-   gpu_time += gpu_time_end - gpu_time_start;
-   clReleaseEvent(hash_init_event);
+   //clGetEventProfilingInfo(hash_init_event, CL_PROFILING_COMMAND_START, sizeof(gpu_time_start), &gpu_time_start, NULL);
+   //clGetEventProfilingInfo(hash_init_event, CL_PROFILING_COMMAND_END, sizeof(gpu_time_end), &gpu_time_end, NULL);
+   //gpu_time += gpu_time_end - gpu_time_start;
+   //clReleaseEvent(hash_init_event);
 
-   if (DETAILED_TIMING) printf("\tinit %.6lf,", (double)(gpu_time_end - gpu_time_start)*1.0e-9);
+   //if (DETAILED_TIMING) printf("\tinit %.6lf,", (double)(gpu_time_end - gpu_time_start)*1.0e-9);
 
    clGetEventProfilingInfo(hash_setup_event, CL_PROFILING_COMMAND_START, sizeof(gpu_time_start), &gpu_time_start, NULL);
    clGetEventProfilingInfo(hash_setup_event, CL_PROFILING_COMMAND_END, sizeof(gpu_time_end), &gpu_time_end, NULL);
