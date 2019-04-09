@@ -725,7 +725,6 @@ void remap_brute2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, re
 
 void remap_kDtree2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, real* V_remap, int mesh_size, int levmx) {
 
-    int ic, jc;
     int num;
     int index_list[powerOfFour(levmx)*4];
     TKDTree2d tree;
@@ -734,12 +733,8 @@ void remap_kDtree2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, r
 
     TBounds2d box;
 
-    real xmin_a, xmin_b, ymin_a, ymin_b, xmax_a, xmax_b, ymax_a, ymax_b;
-    real radius_a, radius_b;
-    real overlap_x, overlap_y;
-
-    for(ic = 0; ic < asize; ic++) {
-       radius_a  = ONE / ((real)mesh_size*powerOfTwo(mesh_a.level[ic]+1));
+    for(uint ic = 0; ic < asize; ic++) {
+       real radius_a  = ONE / ((real)mesh_size*powerOfTwo(mesh_a.level[ic]+1));
        box.min.x = mesh_a.x[ic] - radius_a;
        box.max.x = mesh_a.x[ic] + radius_a;
        box.min.y = mesh_a.y[ic] - radius_a;
@@ -747,26 +742,24 @@ void remap_kDtree2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, r
        KDTree_AddElement2d(&tree, &box);
     }
 
-
-    for(ic = 0; ic < bsize; ic++) {
-       radius_b  = ONE / ((real)mesh_size*powerOfTwo(mesh_b.level[ic]+1));
-       box.min.x = xmin_b = mesh_b.x[ic] - radius_b;
-       box.max.x = xmax_b = mesh_b.x[ic] + radius_b;
-       box.min.y = ymin_b = mesh_b.y[ic] - radius_b;
-       box.max.y = ymax_b = mesh_b.y[ic] + radius_b;
+    for(uint ic = 0; ic < bsize; ic++) {
+       real radius_b  = ONE / ((real)mesh_size*powerOfTwo(mesh_b.level[ic]+1));
+       box.min.x = mesh_b.x[ic] - radius_b;
+       box.max.x = mesh_b.x[ic] + radius_b;
+       box.min.y = mesh_b.y[ic] - radius_b;
+       box.max.y = mesh_b.y[ic] + radius_b;
 
        KDTree_QueryBoxIntersect2d(&tree, &num, &(index_list[0]), &box);
 
+       for(uint jc = 0; jc < num; jc++) {
+          real radius_a  = ONE / ((real)mesh_size*powerOfTwo(mesh_a.level[index_list[jc]]+1));
+          real xmin_a = mesh_a.x[index_list[jc]] - radius_a;
+          real xmax_a = mesh_a.x[index_list[jc]] + radius_a;
+          real ymin_a = mesh_a.y[index_list[jc]] - radius_a;
+          real ymax_a = mesh_a.y[index_list[jc]] + radius_a;
 
-       for(jc = 0; jc < num; jc++) {
-          radius_a  = ONE / ((real)mesh_size*powerOfTwo(mesh_a.level[index_list[jc]]+1));
-          xmin_a = mesh_a.x[index_list[jc]] - radius_a;
-          xmax_a = mesh_a.x[index_list[jc]] + radius_a;
-          ymin_a = mesh_a.y[index_list[jc]] - radius_a;
-          ymax_a = mesh_a.y[index_list[jc]] + radius_a;
-
-          overlap_x = MIN(xmax_a, xmax_b) - MAX(xmin_a, xmin_b);
-          overlap_y = MIN(ymax_a, ymax_b) - MAX(ymin_a, ymin_b);
+          real overlap_x = MIN(xmax_a, box.max.x) - MAX(xmin_a, box.min.x);
+          real overlap_y = MIN(ymax_a, box.max.y) - MAX(ymin_a, box.min.y);
 
           if(overlap_x > ZERO && overlap_y > ZERO) {
              V_remap[ic] += (V_a[index_list[jc]] * (overlap_x*overlap_y) / SQR(TWO*radius_a));
