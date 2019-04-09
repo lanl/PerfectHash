@@ -62,7 +62,9 @@ typedef cl_double cl_real;
 typedef struct {
     double *x;
     double *y;
-    int  *level;
+    int    *level;
+    int    *i;
+    int    *j;
 } cell;
 #define ZERO 0.0
 #define ONE 1.0
@@ -74,7 +76,9 @@ typedef cl_float cl_real;
 typedef struct {
     float *x;
     float *y;
-    int *level;
+    int   *level;
+    int   *i;
+    int   *j;
 } cell;
 #define ZERO 0.0f
 #define ONE 1.0f
@@ -503,17 +507,21 @@ int adaptiveMeshConstructor(const int n, const int l,
    int ncells = SQR(n);
 
    // ints used for for() loops later
-   int i, ic, xc, yc, xlc, ylc, j, nlc;
+   int ic, xc, yc, xlc, ylc, nlc;
 
    // Initialize Coarse Mesh
    int*  level = (int*)  malloc(sizeof(int)*ncells);
    real* x     = (real*) malloc(sizeof(real)*ncells);
    real* y     = (real*) malloc(sizeof(real)*ncells);
+   int*  i     = (int*)  malloc(sizeof(int)*ncells);
+   int*  j     = (int*)  malloc(sizeof(int)*ncells);
    for(yc = 0; yc < n; yc++) {
       for(xc = 0; xc < n; xc++) {
          level[n*yc+xc] = 0;
          x[n*yc+xc]     = (real)(TWO*xc+ONE) / (real)(TWO*n);
          y[n*yc+xc]     = (real)(TWO*yc+ONE) / (real)(TWO*n);
+         i[n*yc+xc]     = xc;
+         j[n*yc+xc]     = yc;
       }
    }
 
@@ -521,11 +529,11 @@ int adaptiveMeshConstructor(const int n, const int l,
 //   unsigned int iseed = (unsigned int)time(NULL);
 //   unsigned int iseed = (unsigned int)(time(NULL)/100000.0);
 //   srand (iseed);
-   for(i = l; i > 0; i--) {
+   for(int ii = l; ii > 0; ii--) {
       for(ic = 0; ic < ncells; ic++) {
-         j = 1 + (int)(10.0*rand() / (RAND_MAX+1.0));
+         int jj = 1 + (int)(10.0*rand() / (RAND_MAX+1.0));
          // XXX Consider distribution across levels: Clustered at 1 level? XXX
-         if(j>5) {level[ic] = i;}
+         if(jj>5) {level[ic] = ii;}
       }
    }
 
@@ -578,6 +586,8 @@ int adaptiveMeshConstructor(const int n, const int l,
    int*  level_temp = (int*)  malloc(sizeof(int)*(ncells+newcount));
    real* x_temp     = (real*) malloc(sizeof(real)*(ncells+newcount));
    real* y_temp     = (real*) malloc(sizeof(real)*(ncells+newcount));
+   int*  i_temp     = (int*)  malloc(sizeof(int)*(ncells+newcount));
+   int*  j_temp     = (int*)  malloc(sizeof(int)*(ncells+newcount));
 
    // Set the Adaptive Mesh
    int offset = 0;
@@ -592,6 +602,8 @@ int adaptiveMeshConstructor(const int n, const int l,
                                     + ((real)(TWO*xlc+ONE) / (real)(n*nlc*TWO));
                y_temp[ic + offset + (nlc*ylc + xlc)] = y[ic]-(ONE / (real)(TWO*n))
                                     + ((real)(TWO*ylc+ONE) / (real)(n*nlc*TWO));
+               i_temp[ic + offset + (nlc*ylc + xlc)] = i[ic]*pow(2,level[ic]) + xlc;
+               j_temp[ic + offset + (nlc*ylc + xlc)] = j[ic]*pow(2,level[ic]) + ylc;
             }         
          }
          offset += powerOfFour(level[ic])-1;
@@ -602,9 +614,13 @@ int adaptiveMeshConstructor(const int n, const int l,
    swap_int(&level, &level_temp);
    swap_real(&x, &x_temp);
    swap_real(&y, &y_temp);
+   swap_int(&i, &i_temp);
+   swap_int(&j, &j_temp);
    free(level_temp);
    free(x_temp);
    free(y_temp);
+   free(i_temp);
+   free(j_temp);
 
    // Update ncells
    ncells += newcount;
@@ -613,16 +629,17 @@ int adaptiveMeshConstructor(const int n, const int l,
    int* random = (int*) malloc(sizeof(int)*ncells);
    int* temp1 = (int*) malloc(sizeof(int)*ncells);
    real* temp2 = (real*) malloc(sizeof(real)*ncells*2);
+   int* temp3 = (int*) malloc(sizeof(int)*ncells*2);
    // XXX Want better randomization? XXX
    for(ic = 0; ic < ncells; ic++) {random[ic] = ic;}
 //   iseed = (unsigned int)time(NULL);
 //   srand (iseed);
    nlc = 0;
-   for(i = 0; i < 7; i++) {
+   for(int ii = 0; ii < 7; ii++) {
       for(ic = 0; ic < ncells; ic++) {
-         j = (int)( ((real)ncells*rand()) / (RAND_MAX+ONE) );
-         nlc = random[j];
-         random[j] = random[ic];
+         int jj = (int)( ((real)ncells*rand()) / (RAND_MAX+ONE) );
+         nlc = random[jj];
+         random[jj] = random[ic];
          random[ic] = nlc;
       }
    }
@@ -632,29 +649,40 @@ int adaptiveMeshConstructor(const int n, const int l,
       temp1[ic] = level[random[ic]];
       temp2[2*ic] = x[random[ic]];
       temp2[2*ic+1] = y[random[ic]];
+      temp3[2*ic] = i[random[ic]];
+      temp3[2*ic+1] = j[random[ic]];
    }
    for(ic = 0; ic < ncells; ic++) {
       level[ic] = temp1[ic];
       x[ic]     = temp2[2*ic];
       y[ic]     = temp2[2*ic+1];
+      i[ic]     = temp3[2*ic];
+      j[ic]     = temp3[2*ic+1];
    }
 
    free(temp1);
    free(temp2);
+   free(temp3);
    free(random);
 
    mesh->x = (real*) malloc(sizeof(real)*ncells);
    mesh->y = (real*) malloc(sizeof(real)*ncells);
    mesh->level = (int*) malloc(sizeof(int)*ncells);
+   mesh->i = (int*) malloc(sizeof(int)*ncells);
+   mesh->j = (int*) malloc(sizeof(int)*ncells);
    for(ic = 0; ic < ncells; ic++) {
       mesh->x[ic]     = x[ic];
       mesh->y[ic]     = y[ic];
       mesh->level[ic] = level[ic];
+      mesh->i[ic]     = i[ic];
+      mesh->j[ic]     = j[ic];
    }
 
    free(x);
    free(y);
    free(level);
+   free(i);
+   free(j);
 
    return ncells;
 
