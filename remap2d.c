@@ -60,9 +60,9 @@
 typedef double real;
 typedef cl_double cl_real;
 typedef struct {
-    double x;
-    double y;
-    long  level;
+    double *x;
+    double *y;
+    int  *level;
 } cell;
 #define ZERO 0.0
 #define ONE 1.0
@@ -72,9 +72,9 @@ typedef struct {
 typedef float real;
 typedef cl_float cl_real;
 typedef struct {
-    float x;
-    float y;
-    long level;
+    float *x;
+    float *y;
+    int *level;
 } cell;
 #define ZERO 0.0f
 #define ONE 1.0f
@@ -138,11 +138,13 @@ int is_nvidia=0;
 cl_kernel remap_c_kernel, remap_r_kernel;
 
 /* Declare Functions */
-int adaptiveMeshConstructor(const int n, const int l, cell** mesh_ptr);
+int adaptiveMeshConstructor(const int n, const int l, cell *mesh_ptr);
 void remaps2d(int mesh_size, int levmx);
-cl_mem parallelRemap2D(cell* mesh_a, cl_mem a_buffer, cl_mem b_buffer, cl_mem V_buffer, int asize, int bsize, int mesh_size, int levmx);
-void remap_brute2d(cell* mesh_a, cell* mesh_b, int asize, int bsize, real* V_a, real* V_remap, int mesh_size);
-void remap_kDtree2d(cell* mesh_a, cell* mesh_b, int asize, int bsize, real* V_a, real* V_remap, int mesh_size, int levmx);
+cl_mem parallelRemap2D(cell mesh_a, cl_mem a_x_buffer, cl_mem a_y_buffer, cl_mem a_level_buffer,
+                                    cl_mem b_x_buffer, cl_mem b_y_buffer, cl_mem b_level_buffer,
+                                    cl_mem V_buffer, int asize, int bsize, int mesh_size, int levmx);
+void remap_brute2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, real* V_remap, int mesh_size);
+void remap_kDtree2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, real* V_remap, int mesh_size, int levmx);
 
 
 /* Begin Funtion Definitions */
@@ -176,8 +178,8 @@ int main (int argc, const char * argv[]) {
 
 void remaps2d(int mesh_size, int levmx) {
 
-   cell* mesh_a;
-   cell* mesh_b;
+   cell mesh_a;
+   cell mesh_b;
    int ic, hic, yc, xc, hwh;
 
    int ncells_a = adaptiveMeshConstructor(mesh_size, levmx, &mesh_a);
@@ -187,7 +189,7 @@ void remaps2d(int mesh_size, int levmx) {
    int icount = 0;
    if(ncells_a == ncells_b) {
       for(ic = 0; ic < ncells_a; ic++) {
-         if(mesh_a[ic].x == mesh_b[ic].x && mesh_a[ic].y == mesh_b[ic].y)
+         if(mesh_a.x[ic] == mesh_b.x[ic] && mesh_a.y[ic] == mesh_b.y[ic])
             icount++;
       }
    }
@@ -199,10 +201,10 @@ void remaps2d(int mesh_size, int levmx) {
    real* V_remap = (real*) malloc(ncells_b*sizeof(real));
 
    for(ic = 0; ic < ncells_a; ic++) {
-      V_a[ic] = ONE / ((real)powerOfFour(mesh_a[ic].level)*(real)SQR(mesh_size));
+      V_a[ic] = ONE / ((real)powerOfFour(mesh_a.level[ic])*(real)SQR(mesh_size));
    }
    for(ic = 0; ic < ncells_b; ic++) {
-      V_b[ic] = ONE / ((real)powerOfFour(mesh_b[ic].level)*(real)SQR(mesh_size));
+      V_b[ic] = ONE / ((real)powerOfFour(mesh_b.level[ic])*(real)SQR(mesh_size));
    }
    for(ic = 0; ic < ncells_b; ic++) {
       V_remap[ic] = ZERO;
@@ -219,8 +221,8 @@ void remaps2d(int mesh_size, int levmx) {
 
    // Fill Hash Table from Mesh A
    for(ic = 0; ic < ncells_a; ic++) {
-      hic = (int) HASH_KEY(mesh_a[ic].x, mesh_a[ic].y, mesh_a[ic].level);
-      hwh = powerOfTwo(levmx - mesh_a[ic].level);
+      hic = (int) HASH_KEY(mesh_a.x[ic], mesh_a.y[ic], mesh_a.level[ic]);
+      hwh = powerOfTwo(levmx - mesh_a.level[ic]);
       for(yc = 0; yc < hwh; yc++) {
          for(xc = 0; xc < hwh; xc++) {
             hash_table[hic] = ic;
@@ -232,8 +234,8 @@ void remaps2d(int mesh_size, int levmx) {
 
    // Use Hash Table to Perform Remap
    for(ic = 0; ic < ncells_b; ic++) {
-      hic = (int) HASH_KEY(mesh_b[ic].x, mesh_b[ic].y, mesh_b[ic].level);
-      hwh = powerOfTwo(levmx - mesh_b[ic].level);
+      hic = (int) HASH_KEY(mesh_b.x[ic], mesh_b.y[ic], mesh_b.level[ic]);
+      hwh = powerOfTwo(levmx - mesh_b.level[ic]);
       int* cell_remap = (int*) malloc(SQR(hwh)*sizeof(int));
       for(yc = 0; yc < hwh; yc++) {
          for(xc = 0; xc < hwh; xc++) {
@@ -244,7 +246,7 @@ void remaps2d(int mesh_size, int levmx) {
       }
 
       for(hic = 0; hic < SQR(hwh); hic++) {
-         V_remap[ic] += (V_a[cell_remap[hic]] / (real)powerOfFour(levmx-mesh_a[cell_remap[hic]].level));
+         V_remap[ic] += (V_a[cell_remap[hic]] / (real)powerOfFour(levmx-mesh_a.level[cell_remap[hic]]));
       }
       free(cell_remap);
    }
@@ -316,16 +318,32 @@ void remaps2d(int mesh_size, int levmx) {
       /* GPU Hash Remap */
       cl_int error;
     
-      cl_mem a_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells_a*sizeof(cell), NULL, &error);
+      cl_mem a_x_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells_a*sizeof(real), NULL, &error);
+      if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+      cl_mem a_y_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells_a*sizeof(real), NULL, &error);
+      if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+      cl_mem a_level_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells_a*sizeof(int), NULL, &error);
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
     
-      error = clEnqueueWriteBuffer(queue, a_buffer, CL_TRUE, 0, ncells_a*sizeof(cell), mesh_a, 0, NULL, NULL);
+      error = clEnqueueWriteBuffer(queue, a_x_buffer, CL_TRUE, 0, ncells_a*sizeof(real), mesh_a.x, 0, NULL, NULL);
+      if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+      error = clEnqueueWriteBuffer(queue, a_y_buffer, CL_TRUE, 0, ncells_a*sizeof(real), mesh_a.y, 0, NULL, NULL);
+      if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+      error = clEnqueueWriteBuffer(queue, a_level_buffer, CL_TRUE, 0, ncells_a*sizeof(int), mesh_a.level, 0, NULL, NULL);
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
     
-      cl_mem b_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells_b*sizeof(cell), NULL, &error);
+      cl_mem b_x_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells_b*sizeof(real), NULL, &error);
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-
-      error = clEnqueueWriteBuffer(queue, b_buffer, CL_TRUE, 0, ncells_b*sizeof(cell), mesh_b, 0, NULL, NULL);
+      cl_mem b_y_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells_b*sizeof(real), NULL, &error);
+      if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+      cl_mem b_level_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells_b*sizeof(int), NULL, &error);
+      if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+    
+      error = clEnqueueWriteBuffer(queue, b_x_buffer, CL_TRUE, 0, ncells_b*sizeof(real), mesh_b.x, 0, NULL, NULL);
+      if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+      error = clEnqueueWriteBuffer(queue, b_y_buffer, CL_TRUE, 0, ncells_b*sizeof(real), mesh_b.y, 0, NULL, NULL);
+      if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+      error = clEnqueueWriteBuffer(queue, b_level_buffer, CL_TRUE, 0, ncells_b*sizeof(int), mesh_b.level, 0, NULL, NULL);
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
     
       cl_mem V_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells_a*sizeof(real), NULL, &error);
@@ -334,7 +352,9 @@ void remaps2d(int mesh_size, int levmx) {
       error = clEnqueueWriteBuffer(queue, V_buffer, CL_TRUE, 0, ncells_a*sizeof(real), V_a, 0, NULL, NULL);
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
 
-      cl_mem remap_buffer = parallelRemap2D(mesh_a, a_buffer, b_buffer, V_buffer, ncells_a, ncells_b, mesh_size, levmx);
+      cl_mem remap_buffer = parallelRemap2D(mesh_a, a_x_buffer, a_y_buffer, a_level_buffer,
+                                                    b_x_buffer, b_y_buffer, b_level_buffer,
+                                                    V_buffer, ncells_a, ncells_b, mesh_size, levmx);
     
       error = clEnqueueReadBuffer(queue, remap_buffer, CL_TRUE, 0, ncells_b*sizeof(real), V_remap, 0, NULL, NULL);
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
@@ -346,8 +366,12 @@ void remaps2d(int mesh_size, int levmx) {
       if(icount > 0)
          printf("Error in the GPU Hash Remap for %d cells out of %d.\n",icount,ncells_b);
     
-      clReleaseMemObject(a_buffer);
-      clReleaseMemObject(b_buffer);
+      clReleaseMemObject(a_x_buffer);
+      clReleaseMemObject(a_y_buffer);
+      clReleaseMemObject(a_level_buffer);
+      clReleaseMemObject(b_x_buffer);
+      clReleaseMemObject(b_y_buffer);
+      clReleaseMemObject(b_level_buffer);
       clReleaseMemObject(V_buffer);
       clReleaseMemObject(remap_buffer);
    } else {
@@ -358,11 +382,17 @@ void remaps2d(int mesh_size, int levmx) {
    free(V_b);
    free(V_remap);
 
-   free(mesh_a);
-   free(mesh_b);
+   free(mesh_a.x);
+   free(mesh_a.y);
+   free(mesh_a.level);
+   free(mesh_b.x);
+   free(mesh_b.y);
+   free(mesh_b.level);
 }
 
-cl_mem parallelRemap2D(cell *mesh_a, cl_mem a_buffer, cl_mem b_buffer, cl_mem V_buffer, int asize, int bsize, int mesh_size, int levmx) {
+cl_mem parallelRemap2D(cell mesh_a, cl_mem a_x_buffer, cl_mem a_y_buffer, cl_mem a_level_buffer,
+                                    cl_mem b_x_buffer, cl_mem b_y_buffer, cl_mem b_level_buffer,
+                                    cl_mem V_buffer, int asize, int bsize, int mesh_size, int levmx) {
     
     cl_int error = 0;
     
@@ -383,15 +413,19 @@ cl_mem parallelRemap2D(cell *mesh_a, cl_mem a_buffer, cl_mem b_buffer, cl_mem V_
     
    error = clSetKernelArg(remap_c_kernel, 0, sizeof(cl_mem), (void*)&temp_buffer);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-   error = clSetKernelArg(remap_c_kernel, 1, sizeof(cl_mem), (void*)&a_buffer);
+   error = clSetKernelArg(remap_c_kernel, 1, sizeof(cl_mem), (void*)&a_x_buffer);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-   error = clSetKernelArg(remap_c_kernel, 2, sizeof(cl_int), &asize);
+   error = clSetKernelArg(remap_c_kernel, 2, sizeof(cl_mem), (void*)&a_y_buffer);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-   error = clSetKernelArg(remap_c_kernel, 3, sizeof(cl_int), &mesh_size);
+   error = clSetKernelArg(remap_c_kernel, 3, sizeof(cl_mem), (void*)&a_level_buffer);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-   error = clSetKernelArg(remap_c_kernel, 4, sizeof(cl_int), &levmx);
+   error = clSetKernelArg(remap_c_kernel, 4, sizeof(cl_int), &asize);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-   
+   error = clSetKernelArg(remap_c_kernel, 5, sizeof(cl_int), &mesh_size);
+   if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+   error = clSetKernelArg(remap_c_kernel, 6, sizeof(cl_int), &levmx);
+   if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+
    cl_event hash_kernel_event;
    
    error = clEnqueueNDRangeKernel(queue, remap_c_kernel, 1, 0, global_work_size, local_work_size, 0, NULL, &hash_kernel_event);
@@ -412,15 +446,23 @@ cl_mem parallelRemap2D(cell *mesh_a, cl_mem a_buffer, cl_mem b_buffer, cl_mem V_
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
    error = clSetKernelArg(remap_r_kernel, 2, sizeof(cl_mem), (void*)&temp_buffer);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-   error = clSetKernelArg(remap_r_kernel, 3, sizeof(cl_mem), (void*)&a_buffer);
+   error = clSetKernelArg(remap_r_kernel, 3, sizeof(cl_mem), (void*)&a_x_buffer);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-   error = clSetKernelArg(remap_r_kernel, 4, sizeof(cl_mem), (void*)&b_buffer);
+   error = clSetKernelArg(remap_r_kernel, 4, sizeof(cl_mem), (void*)&a_y_buffer);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-   error = clSetKernelArg(remap_r_kernel, 5, sizeof(cl_int), &bsize);
+   error = clSetKernelArg(remap_r_kernel, 5, sizeof(cl_mem), (void*)&a_level_buffer);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-   error = clSetKernelArg(remap_r_kernel, 6, sizeof(cl_int), &mesh_size);
+   error = clSetKernelArg(remap_r_kernel, 6, sizeof(cl_mem), (void*)&b_x_buffer);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-   error = clSetKernelArg(remap_r_kernel, 7, sizeof(cl_int), &levmx);
+   error = clSetKernelArg(remap_r_kernel, 7, sizeof(cl_mem), (void*)&b_y_buffer);
+   if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+   error = clSetKernelArg(remap_r_kernel, 8, sizeof(cl_mem), (void*)&b_level_buffer);
+   if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+   error = clSetKernelArg(remap_r_kernel, 9, sizeof(cl_int), &bsize);
+   if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+   error = clSetKernelArg(remap_r_kernel, 10, sizeof(cl_int), &mesh_size);
+   if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+   error = clSetKernelArg(remap_r_kernel, 11, sizeof(cl_int), &levmx);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
     
    cl_event remap_event;
@@ -457,7 +499,7 @@ cl_mem parallelRemap2D(cell *mesh_a, cl_mem a_buffer, cl_mem b_buffer, cl_mem V_
 //
 int adaptiveMeshConstructor(const int n, const int l,
 //                          int** level_ptr, real** x_ptr, real** y_ptr) {
-                            cell** mesh_ptr) {
+                            cell *mesh) {
    int ncells = SQR(n);
 
    // ints used for for() loops later
@@ -601,25 +643,25 @@ int adaptiveMeshConstructor(const int n, const int l,
    free(temp2);
    free(random);
 
-   cell* mesh = (cell*) malloc(sizeof(cell)*ncells);
+   mesh->x = (real*) malloc(sizeof(real)*ncells);
+   mesh->y = (real*) malloc(sizeof(real)*ncells);
+   mesh->level = (int*) malloc(sizeof(int)*ncells);
    for(ic = 0; ic < ncells; ic++) {
-      mesh[ic].x     = x[ic];
-      mesh[ic].y     = y[ic];
-      mesh[ic].level = level[ic];
+      mesh->x[ic]     = x[ic];
+      mesh->y[ic]     = y[ic];
+      mesh->level[ic] = level[ic];
    }
 
    free(x);
    free(y);
    free(level);
 
-   *mesh_ptr = mesh;
-
    return ncells;
 
 }
 
 
-void remap_brute2d(cell* mesh_a, cell* mesh_b, int asize, int bsize, real* V_a, real* V_remap, int mesh_size) {
+void remap_brute2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, real* V_remap, int mesh_size) {
     
     int ic, jc;
     real xmin_a, xmin_b, ymin_a, ymin_b, xmax_a, xmax_b, ymax_a, ymax_b;
@@ -627,18 +669,18 @@ void remap_brute2d(cell* mesh_a, cell* mesh_b, int asize, int bsize, real* V_a, 
     real overlap_x, overlap_y;
 
     for (ic = 0; ic < bsize; ic++) {
-       radius_b = ONE / ((real)mesh_size*powerOfTwo(mesh_b[ic].level+1));
-       xmin_b = mesh_b[ic].x - radius_b;
-       xmax_b = mesh_b[ic].x + radius_b;
-       ymin_b = mesh_b[ic].y - radius_b;
-       ymax_b = mesh_b[ic].y + radius_b;
+       radius_b = ONE / ((real)mesh_size*powerOfTwo(mesh_b.level[ic]+1));
+       xmin_b = mesh_b.x[ic] - radius_b;
+       xmax_b = mesh_b.x[ic] + radius_b;
+       ymin_b = mesh_b.y[ic] - radius_b;
+       ymax_b = mesh_b.y[ic] + radius_b;
 
        for (jc = 0; jc < asize; jc++) {
-          radius_a = ONE / ((real)mesh_size*powerOfTwo(mesh_a[jc].level+1));
-          xmin_a = mesh_a[jc].x - radius_a;
-          xmax_a = mesh_a[jc].x + radius_a;
-          ymin_a = mesh_a[jc].y - radius_a;
-          ymax_a = mesh_a[jc].y + radius_a;
+          radius_a = ONE / ((real)mesh_size*powerOfTwo(mesh_a.level[jc]+1));
+          xmin_a = mesh_a.x[jc] - radius_a;
+          xmax_a = mesh_a.x[jc] + radius_a;
+          ymin_a = mesh_a.y[jc] - radius_a;
+          ymax_a = mesh_a.y[jc] + radius_a;
 
           overlap_x = MIN(xmax_a, xmax_b) - MAX(xmin_a, xmin_b);
           overlap_y = MIN(ymax_a, ymax_b) - MAX(ymin_a, ymin_b);
@@ -653,7 +695,7 @@ void remap_brute2d(cell* mesh_a, cell* mesh_b, int asize, int bsize, real* V_a, 
 
 }
 
-void remap_kDtree2d(cell* mesh_a, cell* mesh_b, int asize, int bsize, real* V_a, real* V_remap, int mesh_size, int levmx) {
+void remap_kDtree2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, real* V_remap, int mesh_size, int levmx) {
 
     int ic, jc;
     int num;
@@ -669,31 +711,31 @@ void remap_kDtree2d(cell* mesh_a, cell* mesh_b, int asize, int bsize, real* V_a,
     real overlap_x, overlap_y;
 
     for(ic = 0; ic < asize; ic++) {
-       radius_a  = ONE / ((real)mesh_size*powerOfTwo(mesh_a[ic].level+1));
-       box.min.x = mesh_a[ic].x - radius_a;
-       box.max.x = mesh_a[ic].x + radius_a;
-       box.min.y = mesh_a[ic].y - radius_a;
-       box.max.y = mesh_a[ic].y + radius_a;
+       radius_a  = ONE / ((real)mesh_size*powerOfTwo(mesh_a.level[ic]+1));
+       box.min.x = mesh_a.x[ic] - radius_a;
+       box.max.x = mesh_a.x[ic] + radius_a;
+       box.min.y = mesh_a.y[ic] - radius_a;
+       box.max.y = mesh_a.y[ic] + radius_a;
        KDTree_AddElement2d(&tree, &box);
     }
 
 
     for(ic = 0; ic < bsize; ic++) {
-       radius_b  = ONE / ((real)mesh_size*powerOfTwo(mesh_b[ic].level+1));
-       box.min.x = xmin_b = mesh_b[ic].x - radius_b;
-       box.max.x = xmax_b = mesh_b[ic].x + radius_b;
-       box.min.y = ymin_b = mesh_b[ic].y - radius_b;
-       box.max.y = ymax_b = mesh_b[ic].y + radius_b;
+       radius_b  = ONE / ((real)mesh_size*powerOfTwo(mesh_b.level[ic]+1));
+       box.min.x = xmin_b = mesh_b.x[ic] - radius_b;
+       box.max.x = xmax_b = mesh_b.x[ic] + radius_b;
+       box.min.y = ymin_b = mesh_b.y[ic] - radius_b;
+       box.max.y = ymax_b = mesh_b.y[ic] + radius_b;
 
        KDTree_QueryBoxIntersect2d(&tree, &num, &(index_list[0]), &box);
 
 
        for(jc = 0; jc < num; jc++) {
-          radius_a  = ONE / ((real)mesh_size*powerOfTwo(mesh_a[index_list[jc]].level+1));
-          xmin_a = mesh_a[index_list[jc]].x - radius_a;
-          xmax_a = mesh_a[index_list[jc]].x + radius_a;
-          ymin_a = mesh_a[index_list[jc]].y - radius_a;
-          ymax_a = mesh_a[index_list[jc]].y + radius_a;
+          radius_a  = ONE / ((real)mesh_size*powerOfTwo(mesh_a.level[index_list[jc]]+1));
+          xmin_a = mesh_a.x[index_list[jc]] - radius_a;
+          xmax_a = mesh_a.x[index_list[jc]] + radius_a;
+          ymin_a = mesh_a.y[index_list[jc]] - radius_a;
+          ymax_a = mesh_a.y[index_list[jc]] + radius_a;
 
           overlap_x = MIN(xmax_a, xmax_b) - MAX(xmin_a, xmin_b);
           overlap_y = MIN(ymax_a, ymax_b) - MAX(ymin_a, ymin_b);

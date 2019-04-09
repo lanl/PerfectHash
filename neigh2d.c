@@ -457,11 +457,11 @@ struct neighbor2d *neighbors2d_hashcpu( uint ncells, int mesh_size, int levmx, i
 
    int **hash = (int **)genmatrix(jmaxsize, imaxsize, sizeof(int));
 
-   for (int jj = 0; jj<jmaxsize; jj++){
-      for (int ii = 0; ii<imaxsize; ii++){
-         hash[jj][ii]=-1;
-      }
-   }
+// for (int jj = 0; jj<jmaxsize; jj++){
+//    for (int ii = 0; ii<imaxsize; ii++){
+//       hash[jj][ii]=-1;
+//    }
+// }
 
    for(int ic=0; ic<ncells; ic++){
       int lev = level[ic];
@@ -516,10 +516,10 @@ cl_mem neighbors2d_hashgpu( uint ncells, int mesh_size, int levmx, cl_mem i_buff
     * Init to -1
     ******************/
 
-   error = clSetKernelArg(init_kernel, 0, sizeof(cl_uint), &hash_size);
-   if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-   error = clSetKernelArg(init_kernel, 1, sizeof(cl_mem), (void*)&hash_buffer);
-   if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+   //error = clSetKernelArg(init_kernel, 0, sizeof(cl_uint), &hash_size);
+   //if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+   //error = clSetKernelArg(init_kernel, 1, sizeof(cl_mem), (void*)&hash_buffer);
+   //if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
 
    size_t global_work_size[1];
    size_t local_work_size[1];

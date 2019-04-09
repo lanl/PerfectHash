@@ -42,9 +42,9 @@
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 typedef double  real;
 typedef struct {
-    double x;
-    double y;
-    long level;
+    double *x;
+    double *y;
+    int *level;
 } cell;
 #define ZERO 0.0
 #define ONE 1.0
@@ -52,9 +52,9 @@ typedef struct {
 #else
 typedef float   real;
 typedef struct {
-    float x;
-    float y;
-    long level;
+    float *x;
+    float *y;
+    int *level;
 } cell;
 #define ZERO 0.0f
 #define ONE 1.0f
@@ -64,6 +64,9 @@ typedef struct {
 #ifndef MIN
 #define MIN(a,b) ((a)>(b)?(b):(a))
 #endif
+
+int powerOfTwo(int n);
+int powerOfFour(int n);
 
 int powerOfTwo(int n) {
    int val = 1;
@@ -89,7 +92,9 @@ int powerOfFour(int n) {
 /* Remap Kernels */
 __kernel void remap_hash_creation_kern(
    __global int* hash_table,
-   __global const cell* mesh_a,
+   __global const real* x,
+   __global const real* y,
+   __global const int* level,
    const int ncells_a,
    const int mesh_size,
    const int levmx) {
@@ -97,11 +102,11 @@ __kernel void remap_hash_creation_kern(
    const int ic = get_global_id(0);
 
    if(ic < ncells_a) {
-      real x = mesh_a[ic].x;
-      real y = mesh_a[ic].y;
-      int lev = mesh_a[ic].level;
+      real xx = x[ic];
+      real yy = y[ic];
+      int lev = level[ic];
 
-      int hic = (int) HASH_KEY(x, y, lev);
+      int hic = (int) HASH_KEY(xx, yy, lev);
       int hwh = powerOfTwo(levmx - lev);
       for(int yc = 0; yc < hwh; yc++) {
          for(int xc = 0; xc < hwh; xc++) {
@@ -119,8 +124,12 @@ __kernel void remap_hash_retrieval_kern(
    __global real* V_remap,
    __global const real* V_a,
    __global const int* hash_table,
-   __global const cell* mesh_a,
-   __global const cell* mesh_b,
+   __global const real* mesh_a_x,
+   __global const real* mesh_a_y,
+   __global const int* mesh_a_level,
+   __global const real* mesh_b_x,
+   __global const real* mesh_b_y,
+   __global const int* mesh_b_level,
    const int ncells_b,
    const int mesh_size,
    const int levmx) {
@@ -131,12 +140,12 @@ __kernel void remap_hash_retrieval_kern(
       V_remap[ic] = ZERO;
       int yc, xc;
       int cell_remap;
-      int hic = (int) HASH_KEY(mesh_b[ic].x, mesh_b[ic].y, mesh_b[ic].level);
-      int hwh = powerOfTwo(levmx - mesh_b[ic].level);
+      int hic = (int) HASH_KEY(mesh_b_x[ic], mesh_b_y[ic], mesh_b_level[ic]);
+      int hwh = powerOfTwo(levmx - mesh_b_level[ic]);
       for(yc = 0; yc < hwh; yc++) {
          for(xc = 0; xc < hwh; xc++) {
             cell_remap = hash_table[hic];
-            V_remap[ic] += (V_a[cell_remap] / (real)powerOfFour(levmx-mesh_a[cell_remap].level));
+            V_remap[ic] += (V_a[cell_remap] / (real)powerOfFour(levmx-mesh_a_level[cell_remap]));
             hic++;
          }
          hic = hic - hwh + HASHY;
