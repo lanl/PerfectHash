@@ -41,40 +41,13 @@
 #ifdef HAVE_CL_DOUBLE
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 typedef double  real;
-typedef struct {
-    double *x;
-    double *y;
-    int *level;
-} cell;
-#define ZERO 0.0
-#define ONE 1.0
-#define TWO 2.0
 #else
 typedef float   real;
-typedef struct {
-    float *x;
-    float *y;
-    int *level;
-} cell;
-#define ZERO 0.0f
-#define ONE 1.0f
-#define TWO 2.0f
-#endif
-
-#ifndef MIN
-#define MIN(a,b) ((a)>(b)?(b):(a))
 #endif
 
 // Cartesian Coordinate Indexing
 #define two_to_the(ishift)       (1u <<(ishift) )
 #define four_to_the(ishift)      (1u << ( (ishift)*2 ) )
-
-#define HASHY (( two_to_the(levmx)*mesh_size ))
-#define XY_TO_IJ(x,lev) (( (x-(ONE/(TWO*(real)mesh_size*(real)two_to_the(lev))))*(real)HASHY ))
-#define SQ(x) ((x)*(x))
-#define HASH_MAX (( SQ(HASHY) ))
-#define HASH_KEY(x,y,lev) (( XY_TO_IJ(x,lev) + XY_TO_IJ(y,lev)*(real)HASHY ))
-
 
 /* Remap Kernels */
 __kernel void remap_hash_creation_kern(
