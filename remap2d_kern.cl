@@ -41,75 +41,45 @@
 #ifdef HAVE_CL_DOUBLE
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 typedef double  real;
-typedef struct {
-    double x;
-    double y;
-    long level;
-} cell;
-#define ZERO 0.0
-#define ONE 1.0
-#define TWO 2.0
 #else
 typedef float   real;
-typedef struct {
-    float x;
-    float y;
-    long level;
-} cell;
-#define ZERO 0.0f
-#define ONE 1.0f
-#define TWO 2.0f
 #endif
-
-#ifndef MIN
-#define MIN(a,b) ((a)>(b)?(b):(a))
-#endif
-
-int powerOfTwo(int n) {
-   int val = 1;
-   int ic;
-   for(ic = 0; ic < n; ic++) {val *= 2;}
-   return val;
-}
-int powerOfFour(int n) {
-   int val = 1;
-   int ic;
-   for(ic = 0; ic < n; ic++) {val *= 4;}
-   return val;
-}
 
 // Cartesian Coordinate Indexing
-#define HASHY (( powerOfTwo(levmx)*mesh_size ))
-#define XY_TO_IJ(x,lev) (( (x-(ONE/(TWO*(real)mesh_size*(real)powerOfTwo(lev))))*(real)HASHY ))
-#define SQR(x) ((x)*(x))
-#define HASH_MAX (( SQR(HASHY) ))
-#define HASH_KEY(x,y,lev) (( XY_TO_IJ(x,lev) + XY_TO_IJ(y,lev)*(real)HASHY ))
-
+#define two_to_the(ishift)       (1u <<(ishift) )
+#define four_to_the(ishift)      (1u << ( (ishift)*2 ) )
 
 /* Remap Kernels */
 __kernel void remap_hash_creation_kern(
    __global int* hash_table,
-   __global const cell* mesh_a,
+   __global const int* i,
+   __global const int* j,
+   __global const int* level,
    const int ncells_a,
    const int mesh_size,
    const int levmx) {
 
    const int ic = get_global_id(0);
 
-   if(ic < ncells_a) {
-      real x = mesh_a[ic].x;
-      real y = mesh_a[ic].y;
-      int lev = mesh_a[ic].level;
+   uint i_max = mesh_size*two_to_the(levmx);
 
-      int hic = (int) HASH_KEY(x, y, lev);
-      int hwh = powerOfTwo(levmx - lev);
-      for(int yc = 0; yc < hwh; yc++) {
-         for(int xc = 0; xc < hwh; xc++) {
-            hash_table[hic] = ic;
-            hic++;
-         }
-         hic = hic - hwh + HASHY;
-      }
+   if(ic < ncells_a) {
+       int ii = i[ic];
+       int jj = j[ic];
+       int lev = level[ic];
+       // If at the maximum level just set the one cell
+       if (lev == levmx) {
+           hash_table[(jj*i_max)+ii] = ic;
+       } else {
+           // Set the square block of cells at the finest level
+           // to the index number
+           int lev_mod = two_to_the(levmx - lev);
+           for (int jjj = jj*lev_mod; jjj < (jj+1)*lev_mod; jjj++) {
+              for (int iii = ii*lev_mod; iii < (ii+1)*lev_mod; iii++) {
+                  hash_table[(jjj*i_max)+iii] = ic;
+              }
+           }
+       }
    }
 
 }
@@ -119,28 +89,33 @@ __kernel void remap_hash_retrieval_kern(
    __global real* V_remap,
    __global const real* V_a,
    __global const int* hash_table,
-   __global const cell* mesh_a,
-   __global const cell* mesh_b,
+   __global const int* mesh_a_i,
+   __global const int* mesh_a_j,
+   __global const int* mesh_a_level,
+   __global const int* mesh_b_i,
+   __global const int* mesh_b_j,
+   __global const int* mesh_b_level,
    const int ncells_b,
    const int mesh_size,
    const int levmx) {
 
-   const int ic = get_global_id(0);
+   const int jc = get_global_id(0);
 
-   if(ic < ncells_b) {
-      V_remap[ic] = ZERO;
-      int yc, xc;
-      int cell_remap;
-      int hic = (int) HASH_KEY(mesh_b[ic].x, mesh_b[ic].y, mesh_b[ic].level);
-      int hwh = powerOfTwo(levmx - mesh_b[ic].level);
-      for(yc = 0; yc < hwh; yc++) {
-         for(xc = 0; xc < hwh; xc++) {
-            cell_remap = hash_table[hic];
-            V_remap[ic] += (V_a[cell_remap] / (real)powerOfFour(levmx-mesh_a[cell_remap].level));
-            hic++;
+   uint i_max = mesh_size*two_to_the(levmx);
+
+   if(jc < ncells_b) {
+      int ii = mesh_b_i[jc];
+      int jj = mesh_b_j[jc];
+      int lev = mesh_b_level[jc];
+      int lev_mod = two_to_the(levmx - lev);
+      real val_sum = 0.0;
+      for(int jjj = jj*lev_mod; jjj < (jj+1)*lev_mod; jjj++) {
+         for(int iii = ii*lev_mod; iii < (ii+1)*lev_mod; iii++) {
+            int ic = hash_table[jjj*i_max+iii];
+            val_sum += V_a[ic] / (real)four_to_the(levmx-mesh_a_level[ic]);
          }
-         hic = hic - hwh + HASHY;
       }
+      V_remap[jc] += val_sum;
    }
 
 }
