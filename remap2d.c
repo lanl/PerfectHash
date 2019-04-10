@@ -242,8 +242,7 @@ void remaps2d(int mesh_size, int levmx) {
       for(int jjj = jj; jjj < jj+lev_mod; jjj++) {
          for(int iii = ii; iii < ii+lev_mod; iii++) {
             int ic = hash_table[jjj*i_max+iii];
-            int leva = mesh_a.level[ic];
-            val_sum += V_a[ic] / (real)four_to_the(levmx-leva);
+            val_sum += V_a[ic] / (real)four_to_the(levmx-mesh_a.level[ic]);
          }
       }
       V_remap[jc] += val_sum;
