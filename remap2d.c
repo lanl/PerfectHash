@@ -214,18 +214,18 @@ void remaps2d(int mesh_size, int levmx) {
 
    // Fill Hash Table from Mesh A
    for(int ic = 0; ic < ncells_a; ic++) {
-        int i = mesh_a.i[ic];
-        int j = mesh_a.j[ic];
+        int ii = mesh_a.i[ic];
+        int jj = mesh_a.j[ic];
         int lev = mesh_a.level[ic];
         // If at the maximum level just set the one cell
         if (lev == levmx) {
-            hash_table[(j*i_max)+i] = ic;
+            hash_table[(jj*i_max)+ii] = ic;
         } else {
             // Set the square block of cells at the finest level
             // to the index number
             int lev_mod = two_to_the(levmx - lev);
-            for (int jjj = j*lev_mod; jjj < (j+1)*lev_mod; jjj++) {
-                for (int iii = i*lev_mod; iii < (i+1)*lev_mod; iii++) {
+            for (int jjj = jj*lev_mod; jjj < (jj+1)*lev_mod; jjj++) {
+                for (int iii = ii*lev_mod; iii < (ii+1)*lev_mod; iii++) {
                     hash_table[(jjj*i_max)+iii] = ic;
                 }
             }
