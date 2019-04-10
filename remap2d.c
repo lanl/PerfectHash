@@ -236,11 +236,11 @@ void remaps2d(int mesh_size, int levmx) {
    for(int jc = 0; jc < ncells_b; jc++) {
       int lev = mesh_b.level[jc];
       int lev_mod = two_to_the(levmx - lev);
-      int jbase = mesh_b.j[jc]*lev_mod;
-      int ibase = mesh_b.i[jc]*lev_mod;
+      int jj = mesh_b.j[jc]*lev_mod;
+      int ii = mesh_b.i[jc]*lev_mod;
       real val_sum = 0.0;
-      for(int jjj = jbase; jjj < jbase+lev_mod; jjj++) {
-         for(int iii = ibase; iii < ibase+lev_mod; iii++) {
+      for(int jjj = jj; jjj < jj+lev_mod; jjj++) {
+         for(int iii = ii; iii < ii+lev_mod; iii++) {
             int ic = hash_table[jjj*i_max+iii];
             int leva = mesh_a.level[ic];
             val_sum += V_a[ic] / (real)four_to_the(levmx-leva);
