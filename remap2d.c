@@ -214,19 +214,19 @@ void remaps2d(int mesh_size, int levmx) {
 
    // Fill Hash Table from Mesh A
    for(int ic = 0; ic < ncells_a; ic++) {
-        uint lev = mesh_a.level[ic];
-        uint i = mesh_a.i[ic];
-        uint j = mesh_a.j[ic];
+        int i = mesh_a.i[ic];
+        int j = mesh_a.j[ic];
+        int lev = mesh_a.level[ic];
         // If at the maximum level just set the one cell
         if (lev == levmx) {
             hash_table[(j*i_max)+i] = ic;
         } else {
             // Set the square block of cells at the finest level
             // to the index number
-            uint lev_mod = two_to_the(levmx - lev);
-            for (uint jj = j*lev_mod; jj < (j+1)*lev_mod; jj++) {
-                for (uint ii = i*lev_mod; ii < (i+1)*lev_mod; ii++) {
-                    hash_table[(jj*i_max)+ii] = ic;
+            int lev_mod = two_to_the(levmx - lev);
+            for (int jjj = j*lev_mod; jjj < (j+1)*lev_mod; jjj++) {
+                for (int iii = i*lev_mod; iii < (i+1)*lev_mod; iii++) {
+                    hash_table[(jjj*i_max)+iii] = ic;
                 }
             }
         }
@@ -235,13 +235,13 @@ void remaps2d(int mesh_size, int levmx) {
    // Use Hash Table to Perform Remap
    for(int jc = 0; jc < ncells_b; jc++) {
       int lev = mesh_b.level[jc];
-      int levmult = two_to_the(levmx - lev);
-      int jbase = mesh_b.j[jc]*levmult;
-      int ibase = mesh_b.i[jc]*levmult;
+      int lev_mod = two_to_the(levmx - lev);
+      int jbase = mesh_b.j[jc]*lev_mod;
+      int ibase = mesh_b.i[jc]*lev_mod;
       real val_sum = 0.0;
-      for(int jj = jbase; jj < jbase+levmult; jj++) {
-         for(int ii = ibase; ii < ibase+levmult; ii++) {
-            int ic = hash_table[jj*i_max+ii];
+      for(int jjj = jbase; jjj < jbase+lev_mod; jjj++) {
+         for(int iii = ibase; iii < ibase+lev_mod; iii++) {
+            int ic = hash_table[jjj*i_max+iii];
             int leva = mesh_a.level[ic];
             val_sum += V_a[ic] / (real)four_to_the(levmx-leva);
          }
