@@ -252,19 +252,15 @@ void remaps2d(int mesh_size, int levmx) {
    for(int jc = 0; jc < ncells_b; jc++) {
       hic = (int) HASH_KEY(mesh_b.x[jc], mesh_b.y[jc], mesh_b.level[jc]);
       hwh = powerOfTwo(levmx - mesh_b.level[jc]);
-      int* cell_remap = (int*) malloc(SQR(hwh)*sizeof(int));
       for(yc = 0; yc < hwh; yc++) {
          for(xc = 0; xc < hwh; xc++) {
-            cell_remap[yc*hwh+xc] = hash_table[hic];
+            int cell_remap = hash_table[hic];
+            V_remap[jc] += (V_a[cell_remap] / (real)powerOfFour(levmx-mesh_a.level[cell_remap]));
             hic++;
          }
          hic = hic - hwh + HASHY;
       }
 
-      for(hic = 0; hic < SQR(hwh); hic++) {
-         V_remap[jc] += (V_a[cell_remap[hic]] / (real)powerOfFour(levmx-mesh_a.level[cell_remap[hic]]));
-      }
-      free(cell_remap);
    }
    free(hash_table);
 
