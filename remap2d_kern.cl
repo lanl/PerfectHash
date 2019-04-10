@@ -65,35 +65,22 @@ typedef struct {
 #define MIN(a,b) ((a)>(b)?(b):(a))
 #endif
 
-int powerOfTwo(int n);
-int powerOfFour(int n);
-
-int powerOfTwo(int n) {
-   int val = 1;
-   int ic;
-   for(ic = 0; ic < n; ic++) {val *= 2;}
-   return val;
-}
-int powerOfFour(int n) {
-   int val = 1;
-   int ic;
-   for(ic = 0; ic < n; ic++) {val *= 4;}
-   return val;
-}
-
 // Cartesian Coordinate Indexing
-#define HASHY (( powerOfTwo(levmx)*mesh_size ))
-#define XY_TO_IJ(x,lev) (( (x-(ONE/(TWO*(real)mesh_size*(real)powerOfTwo(lev))))*(real)HASHY ))
-#define SQR(x) ((x)*(x))
-#define HASH_MAX (( SQR(HASHY) ))
+#define two_to_the(ishift)       (1u <<(ishift) )
+#define four_to_the(ishift)      (1u << ( (ishift)*2 ) )
+
+#define HASHY (( two_to_the(levmx)*mesh_size ))
+#define XY_TO_IJ(x,lev) (( (x-(ONE/(TWO*(real)mesh_size*(real)two_to_the(lev))))*(real)HASHY ))
+#define SQ(x) ((x)*(x))
+#define HASH_MAX (( SQ(HASHY) ))
 #define HASH_KEY(x,y,lev) (( XY_TO_IJ(x,lev) + XY_TO_IJ(y,lev)*(real)HASHY ))
 
 
 /* Remap Kernels */
 __kernel void remap_hash_creation_kern(
    __global int* hash_table,
-   __global const real* x,
-   __global const real* y,
+   __global const int* i,
+   __global const int* j,
    __global const int* level,
    const int ncells_a,
    const int mesh_size,
@@ -101,20 +88,25 @@ __kernel void remap_hash_creation_kern(
 
    const int ic = get_global_id(0);
 
-   if(ic < ncells_a) {
-      real xx = x[ic];
-      real yy = y[ic];
-      int lev = level[ic];
+   uint i_max = mesh_size*two_to_the(levmx);
 
-      int hic = (int) HASH_KEY(xx, yy, lev);
-      int hwh = powerOfTwo(levmx - lev);
-      for(int yc = 0; yc < hwh; yc++) {
-         for(int xc = 0; xc < hwh; xc++) {
-            hash_table[hic] = ic;
-            hic++;
-         }
-         hic = hic - hwh + HASHY;
-      }
+   if(ic < ncells_a) {
+       uint lev = level[ic];
+       uint ii = i[ic];
+       uint jj = j[ic];
+       // If at the maximum level just set the one cell
+       if (lev == levmx) {
+           hash_table[(jj*i_max)+ii] = ic;
+       } else {
+           // Set the square block of cells at the finest level
+           // to the index number
+           uint lev_mod = two_to_the(levmx - lev);
+           for (uint jjj = jj*lev_mod; jjj < (jj+1)*lev_mod; jjj++) {
+              for (uint iii = ii*lev_mod; iii < (ii+1)*lev_mod; iii++) {
+                  hash_table[(jjj*i_max)+iii] = ic;
+              }
+           }
+       }
    }
 
 }
@@ -141,11 +133,11 @@ __kernel void remap_hash_retrieval_kern(
       int yc, xc;
       int cell_remap;
       int hic = (int) HASH_KEY(mesh_b_x[ic], mesh_b_y[ic], mesh_b_level[ic]);
-      int hwh = powerOfTwo(levmx - mesh_b_level[ic]);
+      int hwh = two_to_the(levmx - mesh_b_level[ic]);
       for(yc = 0; yc < hwh; yc++) {
          for(xc = 0; xc < hwh; xc++) {
             cell_remap = hash_table[hic];
-            V_remap[ic] += (V_a[cell_remap] / (real)powerOfFour(levmx-mesh_a_level[cell_remap]));
+            V_remap[ic] += (V_a[cell_remap] / (real)four_to_the(levmx-mesh_a_level[cell_remap]));
             hic++;
          }
          hic = hic - hwh + HASHY;
