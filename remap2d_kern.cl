@@ -91,9 +91,9 @@ __kernel void remap_hash_creation_kern(
    uint i_max = mesh_size*two_to_the(levmx);
 
    if(ic < ncells_a) {
-       uint lev = level[ic];
-       uint ii = i[ic];
-       uint jj = j[ic];
+       int lev = level[ic];
+       int ii = i[ic];
+       int jj = j[ic];
        // If at the maximum level just set the one cell
        if (lev == levmx) {
            hash_table[(jj*i_max)+ii] = ic;
@@ -116,32 +116,34 @@ __kernel void remap_hash_retrieval_kern(
    __global real* V_remap,
    __global const real* V_a,
    __global const int* hash_table,
-   __global const real* mesh_a_x,
-   __global const real* mesh_a_y,
+   __global const int* mesh_a_i,
+   __global const int* mesh_a_j,
    __global const int* mesh_a_level,
-   __global const real* mesh_b_x,
-   __global const real* mesh_b_y,
+   __global const int* mesh_b_i,
+   __global const int* mesh_b_j,
    __global const int* mesh_b_level,
    const int ncells_b,
    const int mesh_size,
    const int levmx) {
 
-   const int ic = get_global_id(0);
+   const int jc = get_global_id(0);
 
-   if(ic < ncells_b) {
-      V_remap[ic] = ZERO;
-      int yc, xc;
-      int cell_remap;
-      int hic = (int) HASH_KEY(mesh_b_x[ic], mesh_b_y[ic], mesh_b_level[ic]);
-      int hwh = two_to_the(levmx - mesh_b_level[ic]);
-      for(yc = 0; yc < hwh; yc++) {
-         for(xc = 0; xc < hwh; xc++) {
-            cell_remap = hash_table[hic];
-            V_remap[ic] += (V_a[cell_remap] / (real)four_to_the(levmx-mesh_a_level[cell_remap]));
-            hic++;
+   uint i_max = mesh_size*two_to_the(levmx);
+
+   if(jc < ncells_b) {
+      int lev = mesh_b_level[jc];
+      int levmult = two_to_the(levmx - lev);
+      int jbase = mesh_b_j[jc]*levmult;
+      int ibase = mesh_b_i[jc]*levmult;
+      real val_sum = 0.0;
+      for(int jj = jbase; jj < jbase+levmult; jj++) {
+         for(int ii = ibase; ii < ibase+levmult; ii++) {
+            int ic = hash_table[jj*i_max+ii];
+            int leva = mesh_a_level[ic];
+            val_sum += V_a[ic] / (real)four_to_the(levmx-leva);
          }
-         hic = hic - hwh + HASHY;
       }
+      V_remap[jc] = val_sum;
    }
 
 }

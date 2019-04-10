@@ -132,8 +132,8 @@ cl_kernel remap_c_kernel, remap_r_kernel;
 /* Declare Functions */
 int adaptiveMeshConstructor(const int n, const int l, cell *mesh_ptr);
 void remaps2d(int mesh_size, int levmx);
-cl_mem parallelRemap2D(cell mesh_a, cl_mem a_i_buffer, cl_mem a_j_buffer, cl_mem a_x_buffer, cl_mem a_y_buffer, cl_mem a_level_buffer,
-                                    cl_mem b_i_buffer, cl_mem b_j_buffer, cl_mem b_x_buffer, cl_mem b_y_buffer, cl_mem b_level_buffer,
+cl_mem parallelRemap2D(cell mesh_a, cl_mem a_i_buffer, cl_mem a_j_buffer, cl_mem a_level_buffer,
+                                    cl_mem b_i_buffer, cl_mem b_j_buffer, cl_mem b_level_buffer,
                                     cl_mem V_buffer, int asize, int bsize, int mesh_size, int levmx);
 void remap_brute2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, real* V_remap, int mesh_size);
 void remap_kDtree2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, real* V_remap, int mesh_size, int levmx);
@@ -321,22 +321,12 @@ void remaps2d(int mesh_size, int levmx) {
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
       cl_mem a_j_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells_a*sizeof(int), NULL, &error);
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-
-      cl_mem a_x_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells_a*sizeof(real), NULL, &error);
-      if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-      cl_mem a_y_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells_a*sizeof(real), NULL, &error);
-      if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
       cl_mem a_level_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells_a*sizeof(int), NULL, &error);
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
 
       error = clEnqueueWriteBuffer(queue, a_i_buffer, CL_TRUE, 0, ncells_a*sizeof(int), mesh_a.i, 0, NULL, NULL);
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
       error = clEnqueueWriteBuffer(queue, a_j_buffer, CL_TRUE, 0, ncells_a*sizeof(int), mesh_a.j, 0, NULL, NULL);
-      if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-    
-      error = clEnqueueWriteBuffer(queue, a_x_buffer, CL_TRUE, 0, ncells_a*sizeof(real), mesh_a.x, 0, NULL, NULL);
-      if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-      error = clEnqueueWriteBuffer(queue, a_y_buffer, CL_TRUE, 0, ncells_a*sizeof(real), mesh_a.y, 0, NULL, NULL);
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
       error = clEnqueueWriteBuffer(queue, a_level_buffer, CL_TRUE, 0, ncells_a*sizeof(int), mesh_a.level, 0, NULL, NULL);
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
@@ -345,22 +335,12 @@ void remaps2d(int mesh_size, int levmx) {
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
       cl_mem b_j_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells_b*sizeof(int), NULL, &error);
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-    
-      cl_mem b_x_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells_b*sizeof(real), NULL, &error);
-      if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-      cl_mem b_y_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells_b*sizeof(real), NULL, &error);
-      if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
       cl_mem b_level_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells_b*sizeof(int), NULL, &error);
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
 
       error = clEnqueueWriteBuffer(queue, b_i_buffer, CL_TRUE, 0, ncells_b*sizeof(int), mesh_b.i, 0, NULL, NULL);
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
       error = clEnqueueWriteBuffer(queue, b_j_buffer, CL_TRUE, 0, ncells_b*sizeof(int), mesh_b.j, 0, NULL, NULL);
-      if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-    
-      error = clEnqueueWriteBuffer(queue, b_x_buffer, CL_TRUE, 0, ncells_b*sizeof(real), mesh_b.x, 0, NULL, NULL);
-      if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-      error = clEnqueueWriteBuffer(queue, b_y_buffer, CL_TRUE, 0, ncells_b*sizeof(real), mesh_b.y, 0, NULL, NULL);
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
       error = clEnqueueWriteBuffer(queue, b_level_buffer, CL_TRUE, 0, ncells_b*sizeof(int), mesh_b.level, 0, NULL, NULL);
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
@@ -371,8 +351,8 @@ void remaps2d(int mesh_size, int levmx) {
       error = clEnqueueWriteBuffer(queue, V_buffer, CL_TRUE, 0, ncells_a*sizeof(real), V_a, 0, NULL, NULL);
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
 
-      cl_mem remap_buffer = parallelRemap2D(mesh_a, a_i_buffer, a_j_buffer, a_x_buffer, a_y_buffer, a_level_buffer,
-                                                    b_i_buffer, b_j_buffer, b_x_buffer, b_y_buffer, b_level_buffer,
+      cl_mem remap_buffer = parallelRemap2D(mesh_a, a_i_buffer, a_j_buffer, a_level_buffer,
+                                                    b_i_buffer, b_j_buffer, b_level_buffer,
                                                     V_buffer, ncells_a, ncells_b, mesh_size, levmx);
     
       error = clEnqueueReadBuffer(queue, remap_buffer, CL_TRUE, 0, ncells_b*sizeof(real), V_remap, 0, NULL, NULL);
@@ -387,13 +367,9 @@ void remaps2d(int mesh_size, int levmx) {
     
       clReleaseMemObject(a_i_buffer);
       clReleaseMemObject(a_j_buffer);
-      clReleaseMemObject(a_x_buffer);
-      clReleaseMemObject(a_y_buffer);
       clReleaseMemObject(a_level_buffer);
       clReleaseMemObject(b_i_buffer);
       clReleaseMemObject(b_j_buffer);
-      clReleaseMemObject(b_x_buffer);
-      clReleaseMemObject(b_y_buffer);
       clReleaseMemObject(b_level_buffer);
       clReleaseMemObject(V_buffer);
       clReleaseMemObject(remap_buffer);
@@ -413,8 +389,8 @@ void remaps2d(int mesh_size, int levmx) {
    free(mesh_b.level);
 }
 
-cl_mem parallelRemap2D(cell mesh_a, cl_mem a_i_buffer, cl_mem a_j_buffer, cl_mem a_x_buffer, cl_mem a_y_buffer, cl_mem a_level_buffer,
-                                    cl_mem b_i_buffer, cl_mem b_j_buffer, cl_mem b_x_buffer, cl_mem b_y_buffer, cl_mem b_level_buffer,
+cl_mem parallelRemap2D(cell mesh_a, cl_mem a_i_buffer, cl_mem a_j_buffer, cl_mem a_level_buffer,
+                                    cl_mem b_i_buffer, cl_mem b_j_buffer, cl_mem b_level_buffer,
                                     cl_mem V_buffer, int asize, int bsize, int mesh_size, int levmx) {
     
     cl_int error = 0;
@@ -469,15 +445,15 @@ cl_mem parallelRemap2D(cell mesh_a, cl_mem a_i_buffer, cl_mem a_j_buffer, cl_mem
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
    error = clSetKernelArg(remap_r_kernel, 2, sizeof(cl_mem), (void*)&temp_buffer);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-   error = clSetKernelArg(remap_r_kernel, 3, sizeof(cl_mem), (void*)&a_x_buffer);
+   error = clSetKernelArg(remap_r_kernel, 3, sizeof(cl_mem), (void*)&a_i_buffer);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-   error = clSetKernelArg(remap_r_kernel, 4, sizeof(cl_mem), (void*)&a_y_buffer);
+   error = clSetKernelArg(remap_r_kernel, 4, sizeof(cl_mem), (void*)&a_j_buffer);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
    error = clSetKernelArg(remap_r_kernel, 5, sizeof(cl_mem), (void*)&a_level_buffer);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-   error = clSetKernelArg(remap_r_kernel, 6, sizeof(cl_mem), (void*)&b_x_buffer);
+   error = clSetKernelArg(remap_r_kernel, 6, sizeof(cl_mem), (void*)&b_i_buffer);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
-   error = clSetKernelArg(remap_r_kernel, 7, sizeof(cl_mem), (void*)&b_y_buffer);
+   error = clSetKernelArg(remap_r_kernel, 7, sizeof(cl_mem), (void*)&b_j_buffer);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
    error = clSetKernelArg(remap_r_kernel, 8, sizeof(cl_mem), (void*)&b_level_buffer);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
