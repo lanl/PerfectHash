@@ -64,18 +64,18 @@ __kernel void remap_hash_creation_kern(
    uint i_max = mesh_size*two_to_the(levmx);
 
    if(ic < ncells_a) {
-       int lev = level[ic];
        int ii = i[ic];
        int jj = j[ic];
+       int lev = level[ic];
        // If at the maximum level just set the one cell
        if (lev == levmx) {
            hash_table[(jj*i_max)+ii] = ic;
        } else {
            // Set the square block of cells at the finest level
            // to the index number
-           uint lev_mod = two_to_the(levmx - lev);
-           for (uint jjj = jj*lev_mod; jjj < (jj+1)*lev_mod; jjj++) {
-              for (uint iii = ii*lev_mod; iii < (ii+1)*lev_mod; iii++) {
+           int lev_mod = two_to_the(levmx - lev);
+           for (int jjj = jj*lev_mod; jjj < (jj+1)*lev_mod; jjj++) {
+              for (int iii = ii*lev_mod; iii < (ii+1)*lev_mod; iii++) {
                   hash_table[(jjj*i_max)+iii] = ic;
               }
            }
@@ -104,19 +104,18 @@ __kernel void remap_hash_retrieval_kern(
    uint i_max = mesh_size*two_to_the(levmx);
 
    if(jc < ncells_b) {
+      int ii = mesh_b_i[jc];
+      int jj = mesh_b_j[jc];
       int lev = mesh_b_level[jc];
-      int levmult = two_to_the(levmx - lev);
-      int jbase = mesh_b_j[jc]*levmult;
-      int ibase = mesh_b_i[jc]*levmult;
+      int lev_mod = two_to_the(levmx - lev);
       real val_sum = 0.0;
-      for(int jj = jbase; jj < jbase+levmult; jj++) {
-         for(int ii = ibase; ii < ibase+levmult; ii++) {
-            int ic = hash_table[jj*i_max+ii];
-            int leva = mesh_a_level[ic];
-            val_sum += V_a[ic] / (real)four_to_the(levmx-leva);
+      for(int jjj = jj*lev_mod; jjj < (jj+1)*lev_mod; jjj++) {
+         for(int iii = ii*lev_mod; iii < (ii+1)*lev_mod; iii++) {
+            int ic = hash_table[jjj*i_max+iii];
+            val_sum += V_a[ic] / (real)four_to_the(levmx-mesh_a_level[ic]);
          }
       }
-      V_remap[jc] = val_sum;
+      V_remap[jc] += val_sum;
    }
 
 }
