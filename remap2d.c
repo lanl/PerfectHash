@@ -186,7 +186,7 @@ void remaps2d(int mesh_size, int levmx) {
 
    cell mesh_a;
    cell mesh_b;
-   int ic, hic, yc, xc, hwh;
+   int hic, yc, xc, hwh;
 
    int ncells_a = adaptiveMeshConstructor(mesh_size, levmx, &mesh_a);
    int ncells_b = adaptiveMeshConstructor(mesh_size, levmx, &mesh_b);
@@ -194,7 +194,7 @@ void remaps2d(int mesh_size, int levmx) {
 
    int icount = 0;
    if(ncells_a == ncells_b) {
-      for(ic = 0; ic < ncells_a; ic++) {
+      for(int ic = 0; ic < ncells_a; ic++) {
          if(mesh_a.x[ic] == mesh_b.x[ic] && mesh_a.y[ic] == mesh_b.y[ic])
             icount++;
       }
@@ -206,13 +206,13 @@ void remaps2d(int mesh_size, int levmx) {
    real* V_b = (real*) malloc(ncells_b*sizeof(real));
    real* V_remap = (real*) malloc(ncells_b*sizeof(real));
 
-   for(ic = 0; ic < ncells_a; ic++) {
+   for(int ic = 0; ic < ncells_a; ic++) {
       V_a[ic] = ONE / ((real)powerOfFour(mesh_a.level[ic])*(real)SQR(mesh_size));
    }
-   for(ic = 0; ic < ncells_b; ic++) {
+   for(int ic = 0; ic < ncells_b; ic++) {
       V_b[ic] = ONE / ((real)powerOfFour(mesh_b.level[ic])*(real)SQR(mesh_size));
    }
-   for(ic = 0; ic < ncells_b; ic++) {
+   for(int ic = 0; ic < ncells_b; ic++) {
       V_remap[ic] = ZERO;
    }
 
@@ -224,12 +224,12 @@ void remaps2d(int mesh_size, int levmx) {
    int hsize = HASH_MAX;
    int* hash_table = (int*) malloc(hsize*sizeof(int));
    // Not needed -- for debug
-   //for(ic = 0; ic < hsize; ic++) {hash_table[ic] = -1;}
+   //for(int ic = 0; ic < hsize; ic++) {hash_table[ic] = -1;}
 
    uint i_max = mesh_size*two_to_the(levmx);
 
    // Fill Hash Table from Mesh A
-   for(ic = 0; ic < ncells_a; ic++) {
+   for(int ic = 0; ic < ncells_a; ic++) {
         uint lev = mesh_a.level[ic];
         uint i = mesh_a.i[ic];
         uint j = mesh_a.j[ic];
@@ -249,9 +249,9 @@ void remaps2d(int mesh_size, int levmx) {
    } 
 
    // Use Hash Table to Perform Remap
-   for(ic = 0; ic < ncells_b; ic++) {
-      hic = (int) HASH_KEY(mesh_b.x[ic], mesh_b.y[ic], mesh_b.level[ic]);
-      hwh = powerOfTwo(levmx - mesh_b.level[ic]);
+   for(int jc = 0; jc < ncells_b; jc++) {
+      hic = (int) HASH_KEY(mesh_b.x[jc], mesh_b.y[jc], mesh_b.level[jc]);
+      hwh = powerOfTwo(levmx - mesh_b.level[jc]);
       int* cell_remap = (int*) malloc(SQR(hwh)*sizeof(int));
       for(yc = 0; yc < hwh; yc++) {
          for(xc = 0; xc < hwh; xc++) {
@@ -262,7 +262,7 @@ void remaps2d(int mesh_size, int levmx) {
       }
 
       for(hic = 0; hic < SQR(hwh); hic++) {
-         V_remap[ic] += (V_a[cell_remap[hic]] / (real)powerOfFour(levmx-mesh_a.level[cell_remap[hic]]));
+         V_remap[jc] += (V_a[cell_remap[hic]] / (real)powerOfFour(levmx-mesh_a.level[cell_remap[hic]]));
       }
       free(cell_remap);
    }
@@ -273,14 +273,14 @@ void remaps2d(int mesh_size, int levmx) {
    printf(" \t %.6lf,", t2 - t1);
 
    icount = 0;
-   for(ic = 0; ic < ncells_b; ic++) {
+   for(int ic = 0; ic < ncells_b; ic++) {
       if(V_b[ic] != V_remap[ic]) icount++;
    }
    if(icount > 0)
       printf("Error in the CPU Hash Remap for %d cells out of %d.\n",icount,ncells_b);
 
    // Reset remap array for Brute Force Remap
-   for(ic = 0; ic < ncells_b; ic++) {V_remap[ic] = ZERO;}
+   for(int ic = 0; ic < ncells_b; ic++) {V_remap[ic] = ZERO;}
 
    if (ncells_a < 600000) {
       /* Brute Force Remap */
@@ -294,7 +294,7 @@ void remaps2d(int mesh_size, int levmx) {
       printf(" \t %.6lf,", t2 - t1);
 
       icount = 0;
-      for(ic = 0; ic < ncells_b; ic++) {
+      for(int ic = 0; ic < ncells_b; ic++) {
          if(V_b[ic] != V_remap[ic]) icount++;
       }
       if(icount > 0)
@@ -304,7 +304,7 @@ void remaps2d(int mesh_size, int levmx) {
    }
 
    // Reset remap array for k-D Tree Remap
-   for(ic = 0; ic < ncells_b; ic++) {V_remap[ic] = ZERO;}
+   for(int ic = 0; ic < ncells_b; ic++) {V_remap[ic] = ZERO;}
 
    /* k-D Tree Remap */
    gettimeofday(&timer, NULL);
@@ -317,14 +317,14 @@ void remaps2d(int mesh_size, int levmx) {
    printf(" \t %.6lf,", t2 - t1);
 
    icount = 0;
-   for(ic = 0; ic < ncells_b; ic++) {
+   for(int ic = 0; ic < ncells_b; ic++) {
       if(V_b[ic] != V_remap[ic]) icount++;
    }
    if(icount > 0)
       printf("Error in the k-D Tree Remap for %d cells out of %d.\n",icount,ncells_b);
 
    // Reset remap array for GPU Hash Remap
-   for(ic = 0; ic < ncells_b; ic++) {V_remap[ic] = ZERO;}
+   for(int ic = 0; ic < ncells_b; ic++) {V_remap[ic] = ZERO;}
 
    size_t needed_gpu_memory = HASH_MAX*sizeof(int)+ncells_a*sizeof(cell)+ncells_b*(sizeof(cell)+sizeof(real));
 
@@ -376,7 +376,7 @@ void remaps2d(int mesh_size, int levmx) {
       if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
 
       icount = 0;
-      for(ic = 0; ic < ncells_b; ic++) {
+      for(int ic = 0; ic < ncells_b; ic++) {
          if(V_b[ic] != V_remap[ic]) icount++;
       }
       if(icount > 0)
