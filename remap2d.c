@@ -234,13 +234,13 @@ void remaps2d(int mesh_size, int levmx) {
 
    // Use Hash Table to Perform Remap
    for(int jc = 0; jc < ncells_b; jc++) {
+      int ii = mesh_b.i[jc];
+      int jj = mesh_b.j[jc];
       int lev = mesh_b.level[jc];
       int lev_mod = two_to_the(levmx - lev);
-      int jj = mesh_b.j[jc]*lev_mod;
-      int ii = mesh_b.i[jc]*lev_mod;
       real val_sum = 0.0;
-      for(int jjj = jj; jjj < jj+lev_mod; jjj++) {
-         for(int iii = ii; iii < ii+lev_mod; iii++) {
+      for(int jjj = jj*lev_mod; jjj < (jj+1)*lev_mod; jjj++) {
+         for(int iii = ii*lev_mod; iii < (ii+1)*lev_mod; iii++) {
             int ic = hash_table[jjj*i_max+iii];
             val_sum += V_a[ic] / (real)four_to_the(levmx-mesh_a.level[ic]);
          }
