@@ -114,8 +114,7 @@ void swap_int(int** a, int** b) {
 #define two_to_the(ishift)       (1u <<(ishift) )
 #define four_to_the(ishift)      (1u << ( (ishift)*2 ) )
 
-#define HASHY (( two_to_the(levmx)*mesh_size ))
-#define HASH_MAX (( SQ(HASHY) ))
+#define HASH_MAX ( SQ( two_to_the(levmx)*mesh_size ) )
 
 /* CPU Timing Variables */
 struct timeval timer;
