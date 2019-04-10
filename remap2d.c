@@ -128,6 +128,8 @@ void swap_int(int** a, int** b) {
 #define HASH_MAX (( SQR(HASHY) ))
 #define HASH_KEY(x,y,lev) (( XY_TO_IJ(x,lev) + XY_TO_IJ(y,lev)*(real)HASHY ))
 
+#define two_to_the(ishift)       (1u <<(ishift) )
+
 
 /* CPU Timing Variables */
 struct timeval timer;
@@ -221,19 +223,29 @@ void remaps2d(int mesh_size, int levmx) {
    // Initialize Hash Table
    int hsize = HASH_MAX;
    int* hash_table = (int*) malloc(hsize*sizeof(int));
-   for(ic = 0; ic < hsize; ic++) {hash_table[ic] = -1;}
+   // Not needed -- for debug
+   //for(ic = 0; ic < hsize; ic++) {hash_table[ic] = -1;}
+
+   uint i_max = mesh_size*two_to_the(levmx);
 
    // Fill Hash Table from Mesh A
    for(ic = 0; ic < ncells_a; ic++) {
-      hic = (int) HASH_KEY(mesh_a.x[ic], mesh_a.y[ic], mesh_a.level[ic]);
-      hwh = powerOfTwo(levmx - mesh_a.level[ic]);
-      for(yc = 0; yc < hwh; yc++) {
-         for(xc = 0; xc < hwh; xc++) {
-            hash_table[hic] = ic;
-            hic++;
-         }
-         hic = hic - hwh + HASHY;
-      } 
+        uint lev = mesh_a.level[ic];
+        uint i = mesh_a.i[ic];
+        uint j = mesh_a.j[ic];
+        // If at the maximum level just set the one cell
+        if (lev == levmx) {
+            hash_table[(j*i_max)+i] = ic;
+        } else {
+            // Set the square block of cells at the finest level
+            // to the index number
+            uint lev_mod = two_to_the(levmx - lev);
+            for (uint jj = j*lev_mod; jj < (j+1)*lev_mod; jj++) {
+                for (uint ii = i*lev_mod; ii < (i+1)*lev_mod; ii++) {
+                    hash_table[(jj*i_max)+ii] = ic;
+                }
+            }
+        }
    } 
 
    // Use Hash Table to Perform Remap
