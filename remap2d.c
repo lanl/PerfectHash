@@ -97,7 +97,7 @@ typedef unsigned int uint;
 #define SWAP_PTR(p1,p2,p3) ((p3=p1), (p1=p2), (p2=p3))
 #endif
 
-#define SQR(x) ((x)*(x))
+#define SQ(x) ((x)*(x))
 int powerOfTwo(int n) {
    int val = 1;
    int ic;
@@ -123,13 +123,11 @@ void swap_int(int** a, int** b) {
 }
 
 // Cartesian Coordinate Indexing
-#define HASHY (( powerOfTwo(levmx)*mesh_size ))
-#define XY_TO_IJ(x,lev) (( (x-(ONE/(TWO*(real)mesh_size*(real)powerOfTwo(lev))))*(real)HASHY ))
-#define HASH_MAX (( SQR(HASHY) ))
-#define HASH_KEY(x,y,lev) (( XY_TO_IJ(x,lev) + XY_TO_IJ(y,lev)*(real)HASHY ))
-
 #define two_to_the(ishift)       (1u <<(ishift) )
+#define four_to_the(ishift)      (1u << ( (ishift)*2 ) )
 
+#define HASHY (( powerOfTwo(levmx)*mesh_size ))
+#define HASH_MAX (( SQ(HASHY) ))
 
 /* CPU Timing Variables */
 struct timeval timer;
@@ -170,7 +168,7 @@ int main (int argc, const char * argv[]) {
     printf("\t \t REMAP 2D \t \t\n Mesh Size, levmx, \t ncells_a, \t ncells_b, \t CPU Hash, \t CPU Brute, \t CPU k-D Tree, \t GPU Hash\n");
     for(mesh_size = 16; mesh_size <= 1024; mesh_size *= 2) {
        for(levmx = 1; levmx <= 8; levmx++) {
-          if(SQR(mesh_size*powerOfTwo(levmx)) > powerOfTwo(28)) {
+          if(SQ(mesh_size*powerOfTwo(levmx)) > powerOfTwo(28)) {
              levmx = 10;
               continue;
           }
@@ -206,10 +204,10 @@ void remaps2d(int mesh_size, int levmx) {
    real* V_remap = (real*) malloc(ncells_b*sizeof(real));
 
    for(int ic = 0; ic < ncells_a; ic++) {
-      V_a[ic] = ONE / ((real)powerOfFour(mesh_a.level[ic])*(real)SQR(mesh_size));
+      V_a[ic] = ONE / ((real)powerOfFour(mesh_a.level[ic])*(real)SQ(mesh_size));
    }
    for(int ic = 0; ic < ncells_b; ic++) {
-      V_b[ic] = ONE / ((real)powerOfFour(mesh_b.level[ic])*(real)SQR(mesh_size));
+      V_b[ic] = ONE / ((real)powerOfFour(mesh_b.level[ic])*(real)SQ(mesh_size));
    }
    for(int ic = 0; ic < ncells_b; ic++) {
       V_remap[ic] = ZERO;
@@ -513,7 +511,7 @@ cl_mem parallelRemap2D(cell mesh_a, cl_mem a_x_buffer, cl_mem a_y_buffer, cl_mem
 int adaptiveMeshConstructor(const int n, const int l,
 //                          int** level_ptr, real** x_ptr, real** y_ptr) {
                             cell *mesh) {
-   int ncells = SQR(n);
+   int ncells = SQ(n);
 
    // ints used for for() loops later
    int ic, xc, yc, xlc, ylc, nlc;
@@ -723,7 +721,7 @@ void remap_brute2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, re
           overlap_y = MIN(ymax_a, ymax_b) - MAX(ymin_a, ymin_b);
 
           if(overlap_x > ZERO && overlap_y > ZERO) {
-             V_remap[ic] += (V_a[jc] * (overlap_x*overlap_y) / SQR(TWO*radius_a));
+             V_remap[ic] += (V_a[jc] * (overlap_x*overlap_y) / SQ(TWO*radius_a));
           }
        }
     }
@@ -771,7 +769,7 @@ void remap_kDtree2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, r
           real overlap_y = MIN(ymax_a, box.max.y) - MAX(ymin_a, box.min.y);
 
           if(overlap_x > ZERO && overlap_y > ZERO) {
-             V_remap[ic] += (V_a[index_list[jc]] * (overlap_x*overlap_y) / SQR(TWO*radius_a));
+             V_remap[ic] += (V_a[index_list[jc]] * (overlap_x*overlap_y) / SQ(TWO*radius_a));
           }
        }
     }
