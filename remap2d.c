@@ -98,18 +98,6 @@ typedef unsigned int uint;
 #endif
 
 #define SQ(x) ((x)*(x))
-int powerOfTwo(int n) {
-   int val = 1;
-   int ic;
-   for(ic = 0; ic < n; ic++) {val *= 2;}
-   return val;
-}
-int powerOfFour(int n) {
-   int val = 1;
-   int ic;
-   for(ic = 0; ic < n; ic++) {val *= 4;}
-   return val;
-}
 
 void swap_real(real** a, real** b) {
    real* c = *a;
@@ -126,7 +114,7 @@ void swap_int(int** a, int** b) {
 #define two_to_the(ishift)       (1u <<(ishift) )
 #define four_to_the(ishift)      (1u << ( (ishift)*2 ) )
 
-#define HASHY (( powerOfTwo(levmx)*mesh_size ))
+#define HASHY (( two_to_the(levmx)*mesh_size ))
 #define HASH_MAX (( SQ(HASHY) ))
 
 /* CPU Timing Variables */
@@ -168,7 +156,7 @@ int main (int argc, const char * argv[]) {
     printf("\t \t REMAP 2D \t \t\n Mesh Size, levmx, \t ncells_a, \t ncells_b, \t CPU Hash, \t CPU Brute, \t CPU k-D Tree, \t GPU Hash\n");
     for(mesh_size = 16; mesh_size <= 1024; mesh_size *= 2) {
        for(levmx = 1; levmx <= 8; levmx++) {
-          if(SQ(mesh_size*powerOfTwo(levmx)) > powerOfTwo(28)) {
+          if(SQ(mesh_size*two_to_the(levmx)) > two_to_the(28)) {
              levmx = 10;
               continue;
           }
@@ -204,10 +192,10 @@ void remaps2d(int mesh_size, int levmx) {
    real* V_remap = (real*) malloc(ncells_b*sizeof(real));
 
    for(int ic = 0; ic < ncells_a; ic++) {
-      V_a[ic] = ONE / ((real)powerOfFour(mesh_a.level[ic])*(real)SQ(mesh_size));
+      V_a[ic] = ONE / ((real)four_to_the(mesh_a.level[ic])*(real)SQ(mesh_size));
    }
    for(int ic = 0; ic < ncells_b; ic++) {
-      V_b[ic] = ONE / ((real)powerOfFour(mesh_b.level[ic])*(real)SQ(mesh_size));
+      V_b[ic] = ONE / ((real)four_to_the(mesh_b.level[ic])*(real)SQ(mesh_size));
    }
    for(int ic = 0; ic < ncells_b; ic++) {
       V_remap[ic] = ZERO;
@@ -248,7 +236,7 @@ void remaps2d(int mesh_size, int levmx) {
    // Use Hash Table to Perform Remap
    for(int jc = 0; jc < ncells_b; jc++) {
       int lev = mesh_b.level[jc];
-      int levmult = powerOfTwo(levmx - lev);
+      int levmult = two_to_the(levmx - lev);
       int jbase = mesh_b.j[jc]*levmult;
       int ibase = mesh_b.i[jc]*levmult;
       real val_sum = 0.0;
@@ -256,7 +244,7 @@ void remaps2d(int mesh_size, int levmx) {
          for(int ii = ibase; ii < ibase+levmult; ii++) {
             int ic = hash_table[jj*i_max+ii];
             int leva = mesh_a.level[ic];
-            val_sum += V_a[ic] / (real)powerOfFour(levmx-leva);
+            val_sum += V_a[ic] / (real)four_to_the(levmx-leva);
          }
       }
       V_remap[jc] += val_sum;
@@ -589,7 +577,7 @@ int adaptiveMeshConstructor(const int n, const int l,
 
    // Allocate Space for the Adaptive Mesh
    newcount = 0;
-   for(ic = 0; ic < ncells; ic++) {newcount += (powerOfFour(level[ic]) - 1);}
+   for(ic = 0; ic < ncells; ic++) {newcount += (four_to_the(level[ic]) - 1);}
    int*  level_temp = (int*)  malloc(sizeof(int)*(ncells+newcount));
    real* x_temp     = (real*) malloc(sizeof(real)*(ncells+newcount));
    real* y_temp     = (real*) malloc(sizeof(real)*(ncells+newcount));
@@ -601,7 +589,7 @@ int adaptiveMeshConstructor(const int n, const int l,
    for(yc = 0; yc < n; yc++) {
       for(xc = 0; xc < n; xc++) {
          ic = n*yc + xc;
-         nlc = (int) SQRT( (real) powerOfFour(level[ic]) );
+         nlc = (int) SQRT( (real) four_to_the(level[ic]) );
          for(ylc = 0; ylc < nlc; ylc++) {
             for(xlc = 0; xlc < nlc; xlc++) {
                level_temp[ic + offset + (nlc*ylc + xlc)] = level[ic];
@@ -613,7 +601,7 @@ int adaptiveMeshConstructor(const int n, const int l,
                j_temp[ic + offset + (nlc*ylc + xlc)] = j[ic]*pow(2,level[ic]) + ylc;
             }         
          }
-         offset += powerOfFour(level[ic])-1;
+         offset += four_to_the(level[ic])-1;
       }
    }
 
@@ -704,14 +692,14 @@ void remap_brute2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, re
     real overlap_x, overlap_y;
 
     for (ic = 0; ic < bsize; ic++) {
-       radius_b = ONE / ((real)mesh_size*powerOfTwo(mesh_b.level[ic]+1));
+       radius_b = ONE / ((real)mesh_size*two_to_the(mesh_b.level[ic]+1));
        xmin_b = mesh_b.x[ic] - radius_b;
        xmax_b = mesh_b.x[ic] + radius_b;
        ymin_b = mesh_b.y[ic] - radius_b;
        ymax_b = mesh_b.y[ic] + radius_b;
 
        for (jc = 0; jc < asize; jc++) {
-          radius_a = ONE / ((real)mesh_size*powerOfTwo(mesh_a.level[jc]+1));
+          radius_a = ONE / ((real)mesh_size*two_to_the(mesh_a.level[jc]+1));
           xmin_a = mesh_a.x[jc] - radius_a;
           xmax_a = mesh_a.x[jc] + radius_a;
           ymin_a = mesh_a.y[jc] - radius_a;
@@ -733,7 +721,7 @@ void remap_brute2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, re
 void remap_kDtree2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, real* V_remap, int mesh_size, int levmx) {
 
     int num;
-    int index_list[powerOfFour(levmx)*4];
+    int index_list[four_to_the(levmx)*4];
     TKDTree2d tree;
 
     KDTree_Initialize2d(&tree);
@@ -741,7 +729,7 @@ void remap_kDtree2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, r
     TBounds2d box;
 
     for(uint ic = 0; ic < asize; ic++) {
-       real radius_a  = ONE / ((real)mesh_size*powerOfTwo(mesh_a.level[ic]+1));
+       real radius_a  = ONE / ((real)mesh_size*two_to_the(mesh_a.level[ic]+1));
        box.min.x = mesh_a.x[ic] - radius_a;
        box.max.x = mesh_a.x[ic] + radius_a;
        box.min.y = mesh_a.y[ic] - radius_a;
@@ -750,7 +738,7 @@ void remap_kDtree2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, r
     }
 
     for(uint ic = 0; ic < bsize; ic++) {
-       real radius_b  = ONE / ((real)mesh_size*powerOfTwo(mesh_b.level[ic]+1));
+       real radius_b  = ONE / ((real)mesh_size*two_to_the(mesh_b.level[ic]+1));
        box.min.x = mesh_b.x[ic] - radius_b;
        box.max.x = mesh_b.x[ic] + radius_b;
        box.min.y = mesh_b.y[ic] - radius_b;
@@ -759,7 +747,7 @@ void remap_kDtree2d(cell mesh_a, cell mesh_b, int asize, int bsize, real* V_a, r
        KDTree_QueryBoxIntersect2d(&tree, &num, &(index_list[0]), &box);
 
        for(uint jc = 0; jc < num; jc++) {
-          real radius_a  = ONE / ((real)mesh_size*powerOfTwo(mesh_a.level[index_list[jc]]+1));
+          real radius_a  = ONE / ((real)mesh_size*two_to_the(mesh_a.level[index_list[jc]]+1));
           real xmin_a = mesh_a.x[index_list[jc]] - radius_a;
           real xmax_a = mesh_a.x[index_list[jc]] + radius_a;
           real ymin_a = mesh_a.y[index_list[jc]] - radius_a;
