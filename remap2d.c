@@ -186,7 +186,6 @@ void remaps2d(int mesh_size, int levmx) {
 
    cell mesh_a;
    cell mesh_b;
-   int hic, yc, xc, hwh;
 
    int ncells_a = adaptiveMeshConstructor(mesh_size, levmx, &mesh_a);
    int ncells_b = adaptiveMeshConstructor(mesh_size, levmx, &mesh_b);
@@ -250,17 +249,19 @@ void remaps2d(int mesh_size, int levmx) {
 
    // Use Hash Table to Perform Remap
    for(int jc = 0; jc < ncells_b; jc++) {
-      hic = (int) HASH_KEY(mesh_b.x[jc], mesh_b.y[jc], mesh_b.level[jc]);
-      hwh = powerOfTwo(levmx - mesh_b.level[jc]);
-      for(yc = 0; yc < hwh; yc++) {
-         for(xc = 0; xc < hwh; xc++) {
+      int lev = mesh_b.level[jc];
+      int levmult = powerOfTwo(levmx - lev);
+      int jj = mesh_b.j[jc]*levmult;
+      real val_sum = 0.0;
+      for(int yc = 0; yc < levmult; yc++, jj++) {
+         int ii = mesh_b.i[jc]*levmult;
+         for(int xc = 0; xc < levmult; xc++, ii++) {
+            int hic = jj*i_max+ii;
             int cell_remap = hash_table[hic];
-            V_remap[jc] += (V_a[cell_remap] / (real)powerOfFour(levmx-mesh_a.level[cell_remap]));
-            hic++;
+            val_sum += (V_a[cell_remap] / (real)powerOfFour(levmx-mesh_a.level[cell_remap]));
          }
-         hic = hic - hwh + HASHY;
       }
-
+      V_remap[jc] += val_sum;
    }
    free(hash_table);
 
