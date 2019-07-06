@@ -39,6 +39,7 @@
 #include <string.h>
 #include <math.h>
 #include <sys/stat.h>
+#include <time.h>
 #include "kdtree/KDTree1d.h"
 #include "gpu.h"
 #include "timer.h"
@@ -533,7 +534,7 @@ void generateRealCells( int size, struct rcell *ptr, int mindx, int maxdx, real 
     struct rcell swap;
     
     struct timespec tim;                //random seeding
-    clock_gettime(&tim);
+    clock_gettime(CLOCK_MONOTONIC, &tim);
     //srand(tim.tv_sec*tim.tv_nsec);
     
     srand(seed);

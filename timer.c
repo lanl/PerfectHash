@@ -30,7 +30,7 @@
  *           Rachel Robey            rnrobey@gmail.com
  * 
  */
-#include <sys/time.h>
+#include <time.h>
 #include "timer.h"
 
 void cpu_timer_start(struct timespec *tstart_cpu)
