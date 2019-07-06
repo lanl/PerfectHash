@@ -153,8 +153,8 @@ int main (int argc, const char * argv[]) {
     remap_r_kernel = clCreateKernel(program,"remap_hash_retrieval_kern", &error);
 
     printf("\t \t REMAP 2D \t \t\n Mesh Size, levmx, \t ncells_a, \t ncells_b, \t CPU Hash, \t CPU Brute, \t CPU k-D Tree, \t GPU Hash\n");
-    for(mesh_size = 16; mesh_size <= 1024; mesh_size *= 2) {
-       for(levmx = 1; levmx <= 8; levmx++) {
+    for(mesh_size = 128; mesh_size <= 1024; mesh_size *= 2) {
+       for(levmx = 1; levmx <= 4; levmx++) {
           if(SQ(mesh_size*two_to_the(levmx)) > two_to_the(28)) {
              levmx = 10;
               continue;
@@ -263,7 +263,7 @@ void remaps2d(int mesh_size, int levmx) {
    // Reset remap array for Brute Force Remap
    for(int ic = 0; ic < ncells_b; ic++) {V_remap[ic] = ZERO;}
 
-   if (ncells_a < 600000) {
+   if (ncells_a < 200000) {
       /* Brute Force Remap */
       gettimeofday(&timer, NULL);
       t1 = timer.tv_sec+(timer.tv_usec/1000000.0);

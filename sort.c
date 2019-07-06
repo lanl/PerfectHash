@@ -131,7 +131,7 @@ int main (int argc, const char * argv[])
 #endif
     //else max_size = 131071;
 
-    for (uint max_mult = 1; max_mult <= 32; max_mult *= 2){
+    for (uint max_mult = 2; max_mult <= 8; max_mult *= 2){
        printf("\nMax diff is %d times min_diff\n",max_mult);
        for( uint i = 1024; i <= max_size; i*=2 ) {
 #ifndef HAVE_CL_DOUBLE

@@ -44,12 +44,16 @@
 
 #ifdef HAVE_CL_DOUBLE
 typedef double real;
+#ifdef HAVE_OPENCL
 typedef cl_double cl_real;
 typedef cl_double4 cl_real4;
+#endif
 #else
 typedef float real;
+#ifdef HAVE_OPENCL
 typedef cl_float cl_real;
 typedef cl_float4 cl_real4;
+#endif
 #endif
 
 #ifndef DEVICE_DETECT_DEBUG
@@ -58,221 +62,221 @@ typedef cl_float4 cl_real4;
 
 void GPUInit(cl_context *context, cl_command_queue *queue, int *is_nvidia, cl_program *program, char *filename) {
     
-    cl_platform_id* platforms;
-    cl_platform_id platform = NULL;
-    cl_uint num_platforms;
-    cl_uint num_devices;
-    cl_device_id* devices;
-    int *device_appropriate;
-    int device_selected = -99;
-    cl_int platform_selected = -1;
-    //cl_program program;
-    cl_int error = 0;
-    
-    error = clGetPlatformIDs(0, NULL, &num_platforms);
-    if(error != CL_SUCCESS) {
-        printf("GPU_INIT: Error with clGetPlatformIDs call in file %s at line %d\n", __FILE__, __LINE__);
-        if (error == CL_INVALID_VALUE){
-           printf("GPU_INIT: Invalid value in clGetPlatformID call\n");
-        }    
-        exit(error);
-    }
-    if (num_platforms == 0) { 
-       printf("GPU_INIT: Error -- No opencl platforms detected in file %s at line %d\n", __FILE__, __LINE__);
-       exit(-1);
-    }
-    if (DEVICE_DETECT_DEBUG){
-       printf("\n\nGPU_INIT: %d opencl platform(s) detected\n",num_platforms);
-    }
+  cl_platform_id* platforms;
+  cl_platform_id platform = NULL;
+  cl_uint num_platforms;
+  cl_uint num_devices;
+  cl_device_id* devices;
+  int *device_appropriate;
+  int device_selected = -99;
+  cl_int platform_selected = -1;
+  //cl_program program;
+  cl_int error = 0;
+  
+  error = clGetPlatformIDs(0, NULL, &num_platforms);
+  if(error != CL_SUCCESS) {
+      printf("GPU_INIT: Error with clGetPlatformIDs call in file %s at line %d\n", __FILE__, __LINE__);
+      if (error == CL_INVALID_VALUE){
+         printf("GPU_INIT: Invalid value in clGetPlatformID call\n");
+      }    
+      exit(error);
+  }
+  if (num_platforms == 0) { 
+     printf("GPU_INIT: Error -- No opencl platforms detected in file %s at line %d\n", __FILE__, __LINE__);
+     exit(-1);
+  }
+  if (DEVICE_DETECT_DEBUG){
+     printf("\n\nGPU_INIT: %d opencl platform(s) detected\n",num_platforms);
+  }
 
-    platforms = (cl_platform_id*)malloc(num_platforms*sizeof(cl_platform_id));
-    error = clGetPlatformIDs(num_platforms, platforms, NULL);
-    if (error != CL_SUCCESS){
-       printf("GPU_INIT: Error with clGetPlatformIDs call in file %s at line %d\n", __FILE__, __LINE__);
-       if (error == CL_INVALID_VALUE){
-          printf("Invalid value in clGetPlatformID call\n");
-       }    
-    }
+  platforms = (cl_platform_id*)malloc(num_platforms*sizeof(cl_platform_id));
+  error = clGetPlatformIDs(num_platforms, platforms, NULL);
+  if (error != CL_SUCCESS){
+     printf("GPU_INIT: Error with clGetPlatformIDs call in file %s at line %d\n", __FILE__, __LINE__);
+     if (error == CL_INVALID_VALUE){
+        printf("Invalid value in clGetPlatformID call\n");
+     }    
+  }
 
-    if (DEVICE_DETECT_DEBUG){
-       char info[1024];
-       for (uint iplatform=0; iplatform<num_platforms; iplatform++){
-          printf("  Platform %d:\n",iplatform+1);
+  if (DEVICE_DETECT_DEBUG){
+     char info[1024];
+     for (uint iplatform=0; iplatform<num_platforms; iplatform++){
+        printf("  Platform %d:\n",iplatform+1);
 
-          //clGetPlatformInfo(platforms[iplatform],CL_PLATFORM_PROFILE,   1024L,info,0);
-          //printf("    CL_PLATFORM_PROFILE    : %s\n",info);
+        //clGetPlatformInfo(platforms[iplatform],CL_PLATFORM_PROFILE,   1024L,info,0);
+        //printf("    CL_PLATFORM_PROFILE    : %s\n",info);
 
-          clGetPlatformInfo(platforms[iplatform],CL_PLATFORM_VERSION,   1024L,info,0);
-          printf("    CL_PLATFORM_VERSION    : %s\n",info);
+        clGetPlatformInfo(platforms[iplatform],CL_PLATFORM_VERSION,   1024L,info,0);
+        printf("    CL_PLATFORM_VERSION    : %s\n",info);
 
-          clGetPlatformInfo(platforms[iplatform],CL_PLATFORM_NAME,      1024L,info,0);
-          printf("    CL_PLATFORM_NAME       : %s\n",info);
+        clGetPlatformInfo(platforms[iplatform],CL_PLATFORM_NAME,      1024L,info,0);
+        printf("    CL_PLATFORM_NAME       : %s\n",info);
 
-          clGetPlatformInfo(platforms[iplatform],CL_PLATFORM_VENDOR,    1024L,info,0);
-          printf("    CL_PLATFORM_VENDOR     : %s\n",info);
+        clGetPlatformInfo(platforms[iplatform],CL_PLATFORM_VENDOR,    1024L,info,0);
+        printf("    CL_PLATFORM_VENDOR     : %s\n",info);
 
-          //clGetPlatformInfo(platforms[iplatform],CL_PLATFORM_EXTENSIONS,1024L,info,0);
-          //printf("    CL_PLATFORM_EXTENSIONS : %s\n",info);
-       }
-       printf("\n");
-    }
+        //clGetPlatformInfo(platforms[iplatform],CL_PLATFORM_EXTENSIONS,1024L,info,0);
+        //printf("    CL_PLATFORM_EXTENSIONS : %s\n",info);
+     }
+     printf("\n");
+  }
 
-    char info[1024];
-    clGetPlatformInfo(platforms[0],CL_PLATFORM_VENDOR, 1024, info, 0);
+  char info[1024];
+  clGetPlatformInfo(platforms[0],CL_PLATFORM_VENDOR, 1024, info, 0);
 
-    // Get the number of devices, allocate, and get the devices
-    for (uint iplatform=0; iplatform<num_platforms; iplatform++){
-       error = clGetDeviceIDs(platforms[iplatform],CL_DEVICE_TYPE_GPU,0,NULL,&num_devices);
-       if (error == CL_DEVICE_NOT_FOUND) {
-          if (DEVICE_DETECT_DEBUG) {
-            printf("Warning: Device of requested type not found for platform %d in clGetDeviceID call\n",iplatform);
-          }
-          continue;
-       }
-       if (error != CL_SUCCESS) {
-         /* Possible Errors
-          *  CL_INVALID_PLATFORM:
-          *  CL_INVALID_DEVICE_TYPE:
-          *  CL_INVALID_VALUE:
-          *  CL_DEVICE_NOT_FOUND:
-          */
-         printf("GPU_INIT clGetDeviceIDs error %d file %s line %d\n", error, __FILE__, __LINE__);
-       }
-       if (DEVICE_DETECT_DEBUG){
-          printf("GPU_INIT: %d opencl devices(s) detected\n",num_devices);
-       }
-       platform_selected = iplatform;
-       platform = platforms[iplatform];
-       //nDevices_selected = nDevices;
-    }
+  // Get the number of devices, allocate, and get the devices
+  for (uint iplatform=0; iplatform<num_platforms; iplatform++){
+     error = clGetDeviceIDs(platforms[iplatform],CL_DEVICE_TYPE_GPU,0,NULL,&num_devices);
+     if (error == CL_DEVICE_NOT_FOUND) {
+        if (DEVICE_DETECT_DEBUG) {
+          printf("Warning: Device of requested type not found for platform %d in clGetDeviceID call\n",iplatform);
+        }
+        continue;
+     }
+     if (error != CL_SUCCESS) {
+       /* Possible Errors
+        *  CL_INVALID_PLATFORM:
+        *  CL_INVALID_DEVICE_TYPE:
+        *  CL_INVALID_VALUE:
+        *  CL_DEVICE_NOT_FOUND:
+        */
+       printf("GPU_INIT clGetDeviceIDs error %d file %s line %d\n", error, __FILE__, __LINE__);
+     }
+     if (DEVICE_DETECT_DEBUG){
+        printf("GPU_INIT: %d opencl devices(s) detected\n",num_devices);
+     }
+     platform_selected = iplatform;
+     platform = platforms[iplatform];
+     //nDevices_selected = nDevices;
+  }
 
-    if (platform_selected == -1){
-       printf("Warning: Device of requested type not found in clGetDeviceID call\n");
-       exit(-1);
-    }
+  if (platform_selected == -1){
+     printf("Warning: Device of requested type not found in clGetDeviceID call\n");
+     exit(-1);
+  }
 
-    devices = (cl_device_id*)malloc(num_devices*sizeof(cl_device_id));
-    device_appropriate = malloc(num_devices*sizeof(int));
-    
-    error = clGetDeviceIDs(platforms[platform_selected], CL_DEVICE_TYPE_GPU, num_devices, devices, NULL);
-    if(error != CL_SUCCESS) {
-        printf("Error getting device ids\n");
-        exit(error);
-    }
+  devices = (cl_device_id*)malloc(num_devices*sizeof(cl_device_id));
+  device_appropriate = malloc(num_devices*sizeof(int));
+  
+  error = clGetDeviceIDs(platforms[platform_selected], CL_DEVICE_TYPE_GPU, num_devices, devices, NULL);
+  if(error != CL_SUCCESS) {
+    printf("Error getting device ids\n");
+    exit(error);
+  }
  
-    int idevice_appropriate = 0;
-    for (uint idevice=0; idevice<num_devices; idevice++){
-       device_appropriate[idevice] = device_double_support(devices[idevice]);;
-       if (device_appropriate[idevice] == 1){
-          if (device_selected == -99) device_selected = idevice;
-          devices[idevice_appropriate] = devices[idevice];
-          idevice_appropriate++;
-       }
-       if (DEVICE_DETECT_DEBUG){
-          printf(  "  Device %d:\n", idevice+1);
-          device_info(devices[idevice]);
-       }
-    }
-    num_devices = idevice_appropriate;
+  int idevice_appropriate = 0;
+  for (uint idevice=0; idevice<num_devices; idevice++){
+     device_appropriate[idevice] = device_double_support(devices[idevice]);;
+     if (device_appropriate[idevice] == 1){
+        if (device_selected == -99) device_selected = idevice;
+        devices[idevice_appropriate] = devices[idevice];
+        idevice_appropriate++;
+     }
+     if (DEVICE_DETECT_DEBUG){
+        printf(  "  Device %d:\n", idevice+1);
+        device_info(devices[idevice]);
+     }
+  }
+  num_devices = idevice_appropriate;
 
-    if (DEVICE_DETECT_DEBUG) {
-       printf("Device selected is %d number of appropriate devices %d\n",device_selected, num_devices);
-    }
+  if (DEVICE_DETECT_DEBUG) {
+     printf("Device selected is %d number of appropriate devices %d\n",device_selected, num_devices);
+  }
 
-    cl_context_properties context_properties[3]=
-    {
-      CL_CONTEXT_PLATFORM,
-      (cl_context_properties)platform,
-      0 // 0 terminates list
-    };   
+  cl_context_properties context_properties[3]=
+  {
+    CL_CONTEXT_PLATFORM,
+    (cl_context_properties)platform,
+    0 // 0 terminates list
+  };   
 
-    *context = clCreateContext(context_properties, num_devices, devices, NULL, NULL, &error);
-    if(error != CL_SUCCESS) {
-        printf("Error creating context\n");
-        exit(error);
-    }
-    *queue = clCreateCommandQueue(*context, devices[0], CL_QUEUE_PROFILING_ENABLE, &error);
-    if(error != CL_SUCCESS) {
-        printf("Error creating command queue\n");
-        exit(error);
-    }
-    
-    // Load the kernel source code into the array source
-    struct stat statbuf;
-    FILE *fh;
-    char *source;
-    
-    fh = fopen(filename, "r");
-    if (!fh) {
-        fprintf(stderr, "Failed to load kernel.\n");
-        exit(-1);
-    }
-    stat(filename, &statbuf);
-    source = (char*)malloc(statbuf.st_size + 1);
-    if( fread(source, statbuf.st_size, 1, fh) != 1) {
-        printf("Problem reading program source file\n");
-    }
-    source[statbuf.st_size] = '\0';
-    fclose( fh );
-    
-    *program = clCreateProgramWithSource(*context, 1, (const char**) &source, NULL, &error);
-    if (error != CL_SUCCESS){
-        printf("clCreateProgramWithSource returned an error %d at line %d in file %s\n", error,__LINE__,__FILE__);
-    }
-    //printf("%d %s\n", (int)statbuf.st_size, source);
-    
-    size_t nReportSize;
-    char* BuildReport;
-    
+  *context = clCreateContext(context_properties, num_devices, devices, NULL, NULL, &error);
+  if(error != CL_SUCCESS) {
+    printf("Error creating context\n");
+    exit(error);
+  }
+  *queue = clCreateCommandQueue(*context, devices[0], CL_QUEUE_PROFILING_ENABLE, &error);
+  if(error != CL_SUCCESS) {
+    printf("Error creating command queue\n");
+    exit(error);
+  }
+  
+  // Load the kernel source code into the array source
+  struct stat statbuf;
+  FILE *fh;
+  char *source;
+  
+  fh = fopen(filename, "r");
+  if (!fh) {
+      fprintf(stderr, "Failed to load kernel.\n");
+      exit(-1);
+  }
+  stat(filename, &statbuf);
+  source = (char*)malloc(statbuf.st_size + 1);
+  if( fread(source, statbuf.st_size, 1, fh) != 1) {
+      printf("Problem reading program source file\n");
+  }
+  source[statbuf.st_size] = '\0';
+  fclose( fh );
+  
+  *program = clCreateProgramWithSource(*context, 1, (const char**) &source, NULL, &error);
+  if (error != CL_SUCCESS){
+      printf("clCreateProgramWithSource returned an error %d at line %d in file %s\n", error,__LINE__,__FILE__);
+  }
+  //printf("%d %s\n", (int)statbuf.st_size, source);
+  
+  size_t nReportSize;
+  char* BuildReport;
+  
 #ifdef HAVE_CL_DOUBLE
-    if (*is_nvidia) {
-       error = clBuildProgram(*program, 0, NULL, "-DHAVE_CL_DOUBLE -DIS_NVIDIA", NULL, NULL);
-    } else {
-       error = clBuildProgram(*program, 0, NULL, "-DHAVE_CL_DOUBLE", NULL, NULL);
-    }
+  if (*is_nvidia) {
+     error = clBuildProgram(*program, 0, NULL, "-DHAVE_CL_DOUBLE -DIS_NVIDIA", NULL, NULL);
+  } else {
+     error = clBuildProgram(*program, 0, NULL, "-DHAVE_CL_DOUBLE", NULL, NULL);
+  }
 #else
-    if (*is_nvidia) {
-       error = clBuildProgram(*program, 0, NULL, "-DNO_CL_DOUBLE -DIS_NVIDIA -cl-single-precision-constant", NULL, NULL);
-    } else {
-       error = clBuildProgram(*program, 0, NULL, "-DNO_CL_DOUBLE -cl-single-precision-constant", NULL, NULL);
-    }
+  if (*is_nvidia) {
+     error = clBuildProgram(*program, 0, NULL, "-DNO_CL_DOUBLE -DIS_NVIDIA -cl-single-precision-constant", NULL, NULL);
+  } else {
+     error = clBuildProgram(*program, 0, NULL, "-DNO_CL_DOUBLE -cl-single-precision-constant", NULL, NULL);
+  }
 #endif
-    if (error != CL_SUCCESS){
-        printf("clBuildProgram returned an error %d at line %d in file %s\n", error,__LINE__,__FILE__);
-        error = clGetProgramBuildInfo(*program, devices[0], CL_PROGRAM_BUILD_LOG, 0, NULL, &nReportSize);
-        if (error != CL_SUCCESS) {
-            switch (error){
-                case CL_INVALID_DEVICE:
-                    printf("Invalid device in clProgramBuildInfo\n");
-                    break;
-                case CL_INVALID_VALUE:
-                    printf("Invalid value in clProgramBuildInfo\n");
-                    break;
-                case CL_INVALID_PROGRAM:
-                    printf("Invalid program in clProgramBuildInfo\n");
-                    break;
-            }
-        }
-        
-        BuildReport = (char *)malloc(nReportSize);
-        
-        error = clGetProgramBuildInfo(*program, devices[0], CL_PROGRAM_BUILD_LOG, nReportSize, BuildReport, NULL);
-        if (error != CL_SUCCESS) {
-            switch (error){
-                case CL_INVALID_DEVICE:
-                    printf("Invalid device in clProgramBuildInfo\n");
-                    break;
-                case CL_INVALID_VALUE:
-                    printf("Invalid value in clProgramBuildInfo\n");
-                    break;
-                case CL_INVALID_PROGRAM:
-                    printf("Invalid program in clProgramBuildInfo\n");
-                    break;
-            }
-        }
-        printf("%s\n", BuildReport);
-    }
-    
+  if (error != CL_SUCCESS){
+      printf("clBuildProgram returned an error %d at line %d in file %s\n", error,__LINE__,__FILE__);
+      error = clGetProgramBuildInfo(*program, devices[0], CL_PROGRAM_BUILD_LOG, 0, NULL, &nReportSize);
+      if (error != CL_SUCCESS) {
+          switch (error){
+              case CL_INVALID_DEVICE:
+                  printf("Invalid device in clProgramBuildInfo\n");
+                  break;
+              case CL_INVALID_VALUE:
+                  printf("Invalid value in clProgramBuildInfo\n");
+                  break;
+              case CL_INVALID_PROGRAM:
+                  printf("Invalid program in clProgramBuildInfo\n");
+                  break;
+          }
+      }
+      
+      BuildReport = (char *)malloc(nReportSize);
+      
+      error = clGetProgramBuildInfo(*program, devices[0], CL_PROGRAM_BUILD_LOG, nReportSize, BuildReport, NULL);
+      if (error != CL_SUCCESS) {
+          switch (error){
+              case CL_INVALID_DEVICE:
+                  printf("Invalid device in clProgramBuildInfo\n");
+                  break;
+              case CL_INVALID_VALUE:
+                  printf("Invalid value in clProgramBuildInfo\n");
+                  break;
+              case CL_INVALID_PROGRAM:
+                  printf("Invalid program in clProgramBuildInfo\n");
+                  break;
+          }
+      }
+      printf("%s\n", BuildReport);
+  }
+  
 }
 
 int device_double_support(cl_device_id device){
