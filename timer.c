@@ -25,60 +25,26 @@
  *
  * This is LANL Copyright Disclosure C13002/LA-CC-12-022
  *
+ *  Authors: Bob Robey       XCP-2   brobey@lanl.gov
+ *           David Nicholaeff        dnic@lanl.gov, mtrxknight@aol.com
+ *           Rachel Robey            rnrobey@gmail.com
+ * 
  */
+#include <sys/time.h>
+#include "timer.h"
 
-#include "Bounds1d.h"
-
-void Bounds_Copy1d(TBounds1d* src, TBounds1d* dest) {
-   assert(src && dest);
-   MEMCPY(src, dest, 1, TBounds1d);
-}
-
-void Bounds_Infinite1d(TBounds1d* b){
-   assert(b);
-   b->min.x = POSITIVE_INFINITY;
-   b->max.x = NEGATIVE_INFINITY;
-}
-
-void Bounds_AddBounds1d(TBounds1d* b, TBounds1d* add) {
-   assert(b && add);
-   b->min.x = MIN(b->min.x, add->min.x);
-   b->max.x = MAX(b->max.x, add->max.x);
-}
-
-void Bounds_AddEpsilon1d(TBounds1d* b, double add) {
-   assert(b);
-   b->min.x = b->min.x - add;
-   b->max.x = b->max.x + add;
-}
-
-boolean Bounds_IsOverlappingBounds1d(TBounds1d* b, TBounds1d* tst) {
-   assert(b && tst);
-   if((tst->max.x < b->min.x) || (tst->min.x > b->max.x))
-      return(false);
-   return(true);
-}
-
-double Bounds_WidthAxis1d(TBounds1d* b, unsigned long axis)
+void cpu_timer_start(struct timespec *tstart_cpu)
 {
-   double width;
-   
-   assert(b);
-   if(axis == XAXIS)
-      width = b->max.x - b->min.x;
-   else
-      assert(NULL);
-   return(width);
+   clock_gettime(CLOCK_MONOTONIC, tstart_cpu);
+}
+double cpu_timer_stop(struct timespec tstart_cpu)
+{
+   struct timespec tstop_cpu, tresult;
+   clock_gettime(CLOCK_MONOTONIC, &tstop_cpu);
+   tresult.tv_sec = tstop_cpu.tv_sec - tstart_cpu.tv_sec;
+   tresult.tv_nsec = tstop_cpu.tv_nsec - tstart_cpu.tv_nsec;
+   double result = (double)tresult.tv_sec + (double)tresult.tv_nsec*1.0e-9;
+
+   return(result);
 }
 
-double Bounds_CenterAxis1d(TBounds1d* b, unsigned long axis)
-{
-   double center;
-   
-   assert(b);
-   if(axis == XAXIS)
-      center = (b->min.x + b->max.x) * 0.5;
-   else
-      assert(NULL);
-   return(center);
-}

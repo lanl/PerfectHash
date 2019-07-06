@@ -1,9 +1,13 @@
-/* Copyright 2012.  Los Alamos National Security, LLC. This material was produced
- * under U.S. Government contract DE-AC52-06NA25396 for Los Alamos National 
- * Laboratory (LANL), which is operated by Los Alamos National Security, LLC
+/*
+ *  Copyright (c) 2012-2019, Triad National Security, LLC.
+ *  All rights Reserved.
+ *
+ * Copyright 2012-2019.  Triad National Security, LLC. This material was produced
+ * under U.S. Government contract 89233218CNA000001 for Los Alamos National 
+ * Laboratory (LANL), which is operated by Triad National Security, LLC
  * for the U.S. Department of Energy. The U.S. Government has rights to use,
- * reproduce, and distribute this software.  NEITHER THE GOVERNMENT NOR LOS
- * ALAMOS NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR
+ * reproduce, and distribute this software.  NEITHER THE GOVERNMENT NOR
+ * TRIAD NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR
  * ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.  If software is modified
  * to produce derivative works, such modified software should be clearly marked,
  * so as not to confuse it with the version available from LANL.   
@@ -19,15 +23,8 @@
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.”
  *
- * Under this license, it is required to include a reference to this work. We
- * request that each derivative work contain a reference to LANL Copyright 
- * Disclosure C13002/LA-CC-12-022 so that this work’s impact can be roughly
- * measured. In addition, it is requested that a modifier is included as in
- * the following example:
- *
- * //<Uses | improves on | modified from> LANL Copyright Disclosure C13002/LA-CC-12-022
- *
  * This is LANL Copyright Disclosure C13002/LA-CC-12-022
+ *
  */
 
 /*
@@ -45,6 +42,7 @@
 #include <sys/stat.h>
 #include "kdtree/KDTree2d.h"
 #include "gpu.h"
+#include "timer.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -117,8 +115,8 @@ void swap_int(int** a, int** b) {
 #define HASH_MAX ( SQ( two_to_the(levmx)*mesh_size ) )
 
 /* CPU Timing Variables */
-struct timeval timer;
-double t1, t2;
+struct timespec tstart;
+double time_sum;
 
 /* OpenCL vairables */
 cl_context context;
@@ -201,8 +199,7 @@ void remaps2d(int mesh_size, int levmx) {
    }
 
    /* CPU Hash Remap */
-   gettimeofday(&timer, NULL);
-   t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+   cpu_timer_start(&tstart);
 
    // Initialize Hash Table
    int hsize = HASH_MAX;
@@ -249,9 +246,8 @@ void remaps2d(int mesh_size, int levmx) {
    }
    free(hash_table);
 
-   gettimeofday(&timer, NULL);
-   t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-   printf(" \t %.6lf,", t2 - t1);
+   time_sum += cpu_timer_stop(tstart);
+   printf(" \t %.6lf,", time_sum);
 
    icount = 0;
    for(int ic = 0; ic < ncells_b; ic++) {
@@ -265,14 +261,12 @@ void remaps2d(int mesh_size, int levmx) {
 
    if (ncells_a < 200000) {
       /* Brute Force Remap */
-      gettimeofday(&timer, NULL);
-      t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+      cpu_timer_start(&tstart);
 
       remap_brute2d(mesh_a, mesh_b, ncells_a, ncells_b, V_a, V_remap, mesh_size);
 
-      gettimeofday(&timer, NULL);
-      t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-      printf(" \t %.6lf,", t2 - t1);
+      time_sum += cpu_timer_stop(tstart);
+      printf(" \t %.6lf,", time_sum);
 
       icount = 0;
       for(int ic = 0; ic < ncells_b; ic++) {
@@ -288,14 +282,12 @@ void remaps2d(int mesh_size, int levmx) {
    for(int ic = 0; ic < ncells_b; ic++) {V_remap[ic] = ZERO;}
 
    /* k-D Tree Remap */
-   gettimeofday(&timer, NULL);
-   t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+   cpu_timer_start(&tstart);
 
    remap_kDtree2d(mesh_a, mesh_b, ncells_a, ncells_b, V_a, V_remap, mesh_size, levmx);
 
-   gettimeofday(&timer, NULL);
-   t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-   printf(" \t %.6lf,", t2 - t1);
+   time_sum += cpu_timer_stop(tstart);
+   printf(" \t %.6lf,", time_sum);
 
    icount = 0;
    for(int ic = 0; ic < ncells_b; ic++) {

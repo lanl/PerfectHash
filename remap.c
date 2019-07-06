@@ -1,9 +1,13 @@
-/* Copyright 2012.  Los Alamos National Security, LLC. This material was produced
- * under U.S. Government contract DE-AC52-06NA25396 for Los Alamos National 
- * Laboratory (LANL), which is operated by Los Alamos National Security, LLC
+/*
+ *  Copyright (c) 2012-2019, Triad National Security, LLC.
+ *  All rights Reserved.
+ *
+ * Copyright 2012-2019.  Triad National Security, LLC. This material was produced
+ * under U.S. Government contract 89233218CNA000001 for Los Alamos National 
+ * Laboratory (LANL), which is operated by Triad National Security, LLC
  * for the U.S. Department of Energy. The U.S. Government has rights to use,
- * reproduce, and distribute this software.  NEITHER THE GOVERNMENT NOR LOS
- * ALAMOS NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR
+ * reproduce, and distribute this software.  NEITHER THE GOVERNMENT NOR
+ * TRIAD NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR
  * ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.  If software is modified
  * to produce derivative works, such modified software should be clearly marked,
  * so as not to confuse it with the version available from LANL.   
@@ -19,15 +23,8 @@
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.”
  *
- * Under this license, it is required to include a reference to this work. We
- * request that each derivative work contain a reference to LANL Copyright 
- * Disclosure C13002/LA-CC-12-022 so that this work’s impact can be roughly
- * measured. In addition, it is requested that a modifier is included as in
- * the following example:
- *
- * //<Uses | improves on | modified from> LANL Copyright Disclosure C13002/LA-CC-12-022
- *
  * This is LANL Copyright Disclosure C13002/LA-CC-12-022
+ *
  */
 
 /*
@@ -44,6 +41,7 @@
 #include <sys/stat.h>
 #include "kdtree/KDTree1d.h"
 #include "gpu.h"
+#include "timer.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -87,8 +85,8 @@ struct rcell {
 };
 
 /* CPU Timing Variables */
-struct timeval timer;
-double t1, t2;
+struct timespec tstart;
+double time_sum;
 
 /* OpenCL variables */
 cl_context context;
@@ -227,21 +225,18 @@ void remaps( int asize, int bsize, double min_diff, double max_diff, double min_
 
     /* Brute Force remap */
     if (asize < 600000) {
-       gettimeofday(&timer, NULL);
-       t1 = timer.tv_sec+(timer.tv_usec/1000000.0); //begin timer
+       cpu_timer_start(&tstart);
     
        remap_gold = remap_bruteforce(arr_a, original_values, arr_b, asize, bsize, min_diff, max_diff, min_val, max_a);
 
-       gettimeofday(&timer, NULL);
-       t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-       printf("%.6lf, ", t2 - t1);
+       time_sum += cpu_timer_stop(tstart);
+       printf("%.6lf, ", time_sum);
     } else {
        printf("not_run, ");
     }
 
     /* CPU kD Tree */
-    gettimeofday(&timer, NULL);
-    t1 = timer.tv_sec+(timer.tv_usec/1000000.0); //begin timer
+    cpu_timer_start(&tstart);
     
     if (asize < 600000) {
        remap_test = remap_kdTree(arr_a, original_values, arr_b, asize, bsize, min_diff, max_diff, min_val, max_a);
@@ -249,9 +244,8 @@ void remaps( int asize, int bsize, double min_diff, double max_diff, double min_
        remap_gold = remap_kdTree(arr_a, original_values, arr_b, asize, bsize, min_diff, max_diff, min_val, max_a);
     }
 
-    gettimeofday(&timer, NULL);
-    t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-    printf("%.6lf, ", t2 - t1);
+    time_sum += cpu_timer_stop(tstart);
+    printf("%.6lf, ", time_sum);
 
     if (asize < 600000){
        for(i = 0; i < bsize; i++) {
@@ -262,8 +256,7 @@ void remaps( int asize, int bsize, double min_diff, double max_diff, double min_
     }
     
     /* CPU Hash Remap1 */
-    gettimeofday(&timer, NULL);
-    t1 = timer.tv_sec+(timer.tv_usec/1000000.0); //begin timer
+    cpu_timer_start(&tstart);
 
     //for (int ic = 0; ic < asize; ic++){
     //   printf("Array In %d %lf %lf value %lf\n",ic,arr_a[ic].low,arr_a[ic].high,original_values[ic]);
@@ -275,9 +268,8 @@ void remaps( int asize, int bsize, double min_diff, double max_diff, double min_
 
     remap_test = remap1( arr_a, original_values, arr_b, asize, bsize, max_a, min_val, min_diff );
 
-    gettimeofday(&timer, NULL);
-    t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-    printf("%.6lf, ", t2 - t1);
+    time_sum += cpu_timer_stop(tstart);
+    printf("%.6lf, ", time_sum);
     
     int icount = 0;
     for(i = 0; i < bsize; i++) {
@@ -290,14 +282,12 @@ void remaps( int asize, int bsize, double min_diff, double max_diff, double min_
     free(remap_test);
 
     /* CPU Hash Remap2 */
-    gettimeofday(&timer, NULL);
-    t1 = timer.tv_sec+(timer.tv_usec/1000000.0); //begin timer
+    cpu_timer_start(&tstart);
 
     remap_test = remap2( arr_old_in, original_values, arr_new_in, asize, bsize, max_a, max_b, min_val, min_diff );
     
-    gettimeofday(&timer, NULL);
-    t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-    printf("%.6lf, ", t2 - t1);
+    time_sum += cpu_timer_stop(tstart);
+    printf("%.6lf, ", time_sum);
     
     icount = 0;
     for(i = 0; i < bsize; i++) {
@@ -332,9 +322,9 @@ void remaps( int asize, int bsize, double min_diff, double max_diff, double min_
        error = clEnqueueWriteBuffer(queue, v_buffer, CL_TRUE, 0, asize*sizeof(real), original_values, 0, NULL, NULL);
        if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
     
-       cl_mem remap_buffer = parallelRemap1( a_buffer, v_buffer, b_buffer, (uint)asize, (uint)bsize, max_a, min_val, min_diff, &t2 );
+       cl_mem remap_buffer = parallelRemap1( a_buffer, v_buffer, b_buffer, (uint)asize, (uint)bsize, max_a, min_val, min_diff, &time_sum );
 
-       printf("%.6lf, ", t2);
+       printf("%.6lf, ", time_sum);
     
        remap_test = (real *)malloc(bsize*sizeof(real));
        error = clEnqueueReadBuffer(queue, remap_buffer, CL_TRUE, 0, bsize*sizeof(real), remap_test, 0, NULL, NULL);
@@ -542,9 +532,9 @@ void generateRealCells( int size, struct rcell *ptr, int mindx, int maxdx, real 
     int i, index, front = 0;
     struct rcell swap;
     
-    struct timeval tim;                //random seeding
-    gettimeofday(&tim, NULL);
-    //srand(tim.tv_sec*tim.tv_usec);
+    struct timespec tim;                //random seeding
+    clock_gettime(&tim);
+    //srand(tim.tv_sec*tim.tv_nsec);
     
     srand(seed);
         seed++;

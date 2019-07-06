@@ -1,9 +1,13 @@
-/* Copyright 2012.  Los Alamos National Security, LLC. This material was produced
- * under U.S. Government contract DE-AC52-06NA25396 for Los Alamos National 
- * Laboratory (LANL), which is operated by Los Alamos National Security, LLC
+/*
+ *  Copyright (c) 2012-2019, Triad National Security, LLC.
+ *  All rights Reserved.
+ *
+ * Copyright 2012-2019.  Triad National Security, LLC. This material was produced
+ * under U.S. Government contract 89233218CNA000001 for Los Alamos National 
+ * Laboratory (LANL), which is operated by Triad National Security, LLC
  * for the U.S. Department of Energy. The U.S. Government has rights to use,
- * reproduce, and distribute this software.  NEITHER THE GOVERNMENT NOR LOS
- * ALAMOS NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR
+ * reproduce, and distribute this software.  NEITHER THE GOVERNMENT NOR
+ * TRIAD NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR
  * ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.  If software is modified
  * to produce derivative works, such modified software should be clearly marked,
  * so as not to confuse it with the version available from LANL.   
@@ -19,15 +23,8 @@
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.”
  *
- * Under this license, it is required to include a reference to this work. We
- * request that each derivative work contain a reference to LANL Copyright 
- * Disclosure C13002/LA-CC-12-022 so that this work’s impact can be roughly
- * measured. In addition, it is requested that a modifier is included as in
- * the following example:
- *
- * //<Uses | improves on | modified from> LANL Copyright Disclosure C13002/LA-CC-12-022
- *
  * This is LANL Copyright Disclosure C13002/LA-CC-12-022
+ *
  */
 
 /*
@@ -42,6 +39,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include "gpu.h"
+#include "timer.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -166,25 +164,21 @@ int main(int argc, char *argv[])
       }
 
       int xstride = 51;
-      struct timeval timer;
-      double t1, t2;
+      struct timespec tstart;
+      double time_sum;
 
       // call data table interpolation routine
-      gettimeofday(&timer, NULL);
-      t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+      cpu_timer_start(&tstart);
       value_gold = interpolate_bruteforce(isize, xstride, density_axis, temp_axis,
          density_array, temp_array, data);
-      gettimeofday(&timer, NULL);
-      t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-      printf("\t%.6lf,", t2 - t1);
+      time_sum += cpu_timer_stop(tstart);
+      printf("\t%.6lf,", time_sum);
 
-      gettimeofday(&timer, NULL);
-      t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+      cpu_timer_start(&tstart);
       value_test = interpolate_bisection(isize, xstride, density_axis, temp_axis,
          density_array, temp_array, data);
-      gettimeofday(&timer, NULL);
-      t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-      printf("\t%.6lf,", t2 - t1);
+      time_sum += cpu_timer_stop(tstart);
+      printf("\t%.6lf,", time_sum);
 
       for (i= 0; i<isize; i++){
          if (value_test[i] != value_gold[i]){
@@ -194,13 +188,11 @@ int main(int argc, char *argv[])
 
       free(value_test);
 
-      gettimeofday(&timer, NULL);
-      t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+      cpu_timer_start(&tstart);
       value_test = interpolate_hashcpu(isize, xstride, density_axis, temp_axis,
          density_array, temp_array, data);
-      gettimeofday(&timer, NULL);
-      t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-      printf("\t%.6lf,", t2 - t1);
+      time_sum += cpu_timer_stop(tstart);
+      printf("\t%.6lf,", time_sum);
 
       for (i= 0; i<isize; i++){
          if (value_test[i] != value_gold[i]){
@@ -227,8 +219,8 @@ int main(int argc, char *argv[])
       free(temp_array_real);
 
       cl_mem value_buffer = interpolate_hashgpu(isize, xstride, density_axis_buffer, temp_axis_buffer,
-         density_array_buffer, temp_array_buffer, data_buffer, &t2);
-      printf("\t%.6lf,", t2);
+         density_array_buffer, temp_array_buffer, data_buffer, &time_sum);
+      printf("\t%.6lf,", time_sum);
 
       clReleaseMemObject(density_array_buffer);
       clReleaseMemObject(temp_array_buffer);

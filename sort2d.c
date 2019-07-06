@@ -1,9 +1,13 @@
-/* Copyright 2012.  Los Alamos National Security, LLC. This material was produced
- * under U.S. Government contract DE-AC52-06NA25396 for Los Alamos National 
- * Laboratory (LANL), which is operated by Los Alamos National Security, LLC
+/*
+ *  Copyright (c) 2012-2019, Triad National Security, LLC.
+ *  All rights Reserved.
+ *
+ * Copyright 2012-2019.  Triad National Security, LLC. This material was produced
+ * under U.S. Government contract 89233218CNA000001 for Los Alamos National 
+ * Laboratory (LANL), which is operated by Triad National Security, LLC
  * for the U.S. Department of Energy. The U.S. Government has rights to use,
- * reproduce, and distribute this software.  NEITHER THE GOVERNMENT NOR LOS
- * ALAMOS NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR
+ * reproduce, and distribute this software.  NEITHER THE GOVERNMENT NOR
+ * TRIAD NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR
  * ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.  If software is modified
  * to produce derivative works, such modified software should be clearly marked,
  * so as not to confuse it with the version available from LANL.   
@@ -19,15 +23,8 @@
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.”
  *
- * Under this license, it is required to include a reference to this work. We
- * request that each derivative work contain a reference to LANL Copyright 
- * Disclosure C13002/LA-CC-12-022 so that this work’s impact can be roughly
- * measured. In addition, it is requested that a modifier is included as in
- * the following example:
- *
- * //<Uses | improves on | modified from> LANL Copyright Disclosure C13002/LA-CC-12-022
- *
  * This is LANL Copyright Disclosure C13002/LA-CC-12-022
+ *
  */
 
 /*
@@ -46,6 +43,7 @@
 #include <math.h>
 #include <sys/stat.h>
 #include "gpu.h"
+#include "timer.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -123,8 +121,8 @@ void swap_int(int** a, int** b) {
 }
 
 
-struct timeval timer;
-double t1, t2;
+struct timespec tstart;
+double time_sum;
 
 int mesh_size;
 #define MESH_SIZE mesh_size
@@ -212,22 +210,18 @@ int main(int argc, const char * argv[]) {
          printf("\t%d,     ", ncells);
 
          /* Quicksort CPU */
-         gettimeofday(&timer, NULL);
-         t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+         cpu_timer_start(&tstart);
          qsort(sorted, ncells, sizeof(cell), compare_cells);
-         gettimeofday(&timer, NULL);
-         t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-         printf("\t%.6lf,", t2 - t1);
+         time_sum += cpu_timer_stop(tstart);
+         printf("\t%.6lf,", time_sum);
 
          /* Hashsort CPU */
          int* hash_table = NULL;
-	      gettimeofday(&timer, NULL);
-	      t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+	      cpu_timer_start(&tstart);
 
          hash_table = hashsort2d(unsorted, sorted_temp, ncells, mesh, levmx);
-	      gettimeofday(&timer, NULL);
-         t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-	      printf("\t%.6lf,", t2 - t1);
+	      time_sum += cpu_timer_stop(tstart);
+	      printf("\t%.6lf,", time_sum);
 #ifdef CHECK
          icount = 0;
          for(ic = 0; ic < ncells; ic++) {
@@ -251,7 +245,7 @@ int main(int argc, const char * argv[]) {
            error = clEnqueueWriteBuffer(queue, unsorted_mesh_buffer, CL_TRUE, 0, ncells*sizeof(cell), unsorted, 0, NULL, NULL);
            if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
 
-           sorted_mesh_buffer = parallelHash(ncells, levmx, mesh_size, unsorted_mesh_buffer, &t2);
+           sorted_mesh_buffer = parallelHash(ncells, levmx, mesh_size, unsorted_mesh_buffer, &time_sum);
            clReleaseMemObject(unsorted_mesh_buffer);
         }
 
@@ -260,7 +254,7 @@ int main(int argc, const char * argv[]) {
            if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
            clReleaseMemObject(sorted_mesh_buffer);
 
-	   printf("\t%.6lf,", t2);
+	   printf("\t%.6lf,", time_sum);
 
 // Should not have round-off since we are just moving data
 #ifdef CHECK

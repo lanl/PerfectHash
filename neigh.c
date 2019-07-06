@@ -1,9 +1,13 @@
-/* Copyright 2012.  Los Alamos National Security, LLC. This material was produced
- * under U.S. Government contract DE-AC52-06NA25396 for Los Alamos National 
- * Laboratory (LANL), which is operated by Los Alamos National Security, LLC
+/*
+ *  Copyright (c) 2012-2019, Triad National Security, LLC.
+ *  All rights Reserved.
+ *
+ * Copyright 2012-2019.  Triad National Security, LLC. This material was produced
+ * under U.S. Government contract 89233218CNA000001 for Los Alamos National 
+ * Laboratory (LANL), which is operated by Triad National Security, LLC
  * for the U.S. Department of Energy. The U.S. Government has rights to use,
- * reproduce, and distribute this software.  NEITHER THE GOVERNMENT NOR LOS
- * ALAMOS NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR
+ * reproduce, and distribute this software.  NEITHER THE GOVERNMENT NOR
+ * TRIAD NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR
  * ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.  If software is modified
  * to produce derivative works, such modified software should be clearly marked,
  * so as not to confuse it with the version available from LANL.   
@@ -19,15 +23,8 @@
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.”
  *
- * Under this license, it is required to include a reference to this work. We
- * request that each derivative work contain a reference to LANL Copyright 
- * Disclosure C13002/LA-CC-12-022 so that this work’s impact can be roughly
- * measured. In addition, it is requested that a modifier is included as in
- * the following example:
- *
- * //<Uses | improves on | modified from> LANL Copyright Disclosure C13002/LA-CC-12-022
- *
  * This is LANL Copyright Disclosure C13002/LA-CC-12-022
+ *
  */
 
 /*
@@ -45,6 +42,7 @@
 #include <sys/stat.h>
 #include "kdtree/KDTree1d.h"
 #include "gpu.h"
+#include "timer.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -87,8 +85,8 @@ struct neighbor {
     uint right;
 };
 
-struct timeval timer;
-double t1, t2;
+struct timespec tstart;
+double time_sum;
 
 int is_nvidia = 0;
 #define BRUTE_FORCE_SIZE_LIMIT 500000
@@ -148,12 +146,10 @@ void neighbors( uint length, double min_diff, double max_diff, double min_val )
    //for (uint i=0; i<length; i++) {printf("i %d xcoor %lf\n",i,xcoor[i]);}
 
    if (length < BRUTE_FORCE_SIZE_LIMIT) {
-      gettimeofday(&timer, NULL);
-      t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+      cpu_timer_start(&tstart);
       neigh_gold = neighbors_bruteforce(length, xcoor, min_val, max_val);
-      gettimeofday(&timer, NULL);
-      t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-      printf("\t%.6lf,", t2 - t1);
+      time_sum += cpu_timer_stop(tstart);
+      printf("\t%.6lf,", time_sum);
 
 #ifdef XXX
       printf("\n");
@@ -169,16 +165,14 @@ void neighbors( uint length, double min_diff, double max_diff, double min_val )
       printf("\tnot_run,  ");
    }
 
-   gettimeofday(&timer, NULL);
-   t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+   cpu_timer_start(&tstart);
    if (length < BRUTE_FORCE_SIZE_LIMIT)
       neigh_test = neighbors_kdtree(length, xcoor, xmin, xmax, min_diff, max_val, min_val);
    else
       neigh_gold = neighbors_kdtree(length, xcoor, xmin, xmax, min_diff, max_val, min_val);
 
-   gettimeofday(&timer, NULL);
-   t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-   printf("\t%.6lf,", t2 - t1);
+   time_sum += cpu_timer_stop(tstart);
+   printf("\t%.6lf,", time_sum);
 
 #ifdef XXX
    for (uint index=0; index<length; index++){
@@ -193,12 +187,10 @@ void neighbors( uint length, double min_diff, double max_diff, double min_val )
    if (length < 200000) free(neigh_test);
 #endif
 
-   gettimeofday(&timer, NULL);
-   t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+   cpu_timer_start(&tstart);
    neigh_test = neighbors_hashcpu(length, xcoor, min_diff, max_val, min_val);
-   gettimeofday(&timer, NULL);
-   t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-   printf("\t%.6lf,", t2 - t1);
+   time_sum += cpu_timer_stop(tstart);
+   printf("\t%.6lf,", time_sum);
 
    for (uint index=0; index<length; index++){
       if (neigh_test[index].left != neigh_gold[index].left || neigh_test[index].right != neigh_gold[index].right){
@@ -218,11 +210,11 @@ void neighbors( uint length, double min_diff, double max_diff, double min_val )
    error = clEnqueueWriteBuffer(queue, data_buffer, CL_TRUE, 0, length*sizeof(real), xcoor, 0, NULL, NULL);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
 
-   cl_mem neigh_buffer = neighbors_hashgpu(length, data_buffer, min_diff, max_val, min_val, &t2);
+   cl_mem neigh_buffer = neighbors_hashgpu(length, data_buffer, min_diff, max_val, min_val, &time_sum);
    clReleaseMemObject(data_buffer);
 
    if (neigh_buffer != NULL) {
-      printf("\t%.6lf,", t2);
+      printf("\t%.6lf,", time_sum);
 
       neigh_test = (struct neighbor *)malloc(length*sizeof(struct neighbor));
       error = clEnqueueReadBuffer(queue, neigh_buffer, CL_TRUE, 0, length*sizeof(cl_uint2), neigh_test, 0, NULL, NULL);
@@ -479,9 +471,9 @@ double generate_array_wminmax( uint size, double *ptr, double *xmin, double *xma
 	int index, front = 0;
     double running_min = maxdx;
 		
-	struct timeval tim;				//random seeding
-	gettimeofday(&tim, NULL);
-	//srand(tim.tv_sec*tim.tv_usec);
+	struct timespec tim;				//random seeding
+	cpu_timer_start(&tim);
+	//srand(tim.tv_sec*tim.tv_nsec);
 	
 	srand(0);
 	

@@ -1,9 +1,13 @@
-/* Copyright 2012.  Los Alamos National Security, LLC. This material was produced
- * under U.S. Government contract DE-AC52-06NA25396 for Los Alamos National 
- * Laboratory (LANL), which is operated by Los Alamos National Security, LLC
+/*
+ *  Copyright (c) 2012-2019, Triad National Security, LLC.
+ *  All rights Reserved.
+ *
+ * Copyright 2012-2019.  Triad National Security, LLC. This material was produced
+ * under U.S. Government contract 89233218CNA000001 for Los Alamos National 
+ * Laboratory (LANL), which is operated by Triad National Security, LLC
  * for the U.S. Department of Energy. The U.S. Government has rights to use,
- * reproduce, and distribute this software.  NEITHER THE GOVERNMENT NOR LOS
- * ALAMOS NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR
+ * reproduce, and distribute this software.  NEITHER THE GOVERNMENT NOR
+ * TRIAD NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR
  * ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.  If software is modified
  * to produce derivative works, such modified software should be clearly marked,
  * so as not to confuse it with the version available from LANL.   
@@ -19,15 +23,8 @@
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.”
  *
- * Under this license, it is required to include a reference to this work. We
- * request that each derivative work contain a reference to LANL Copyright 
- * Disclosure C13002/LA-CC-12-022 so that this work’s impact can be roughly
- * measured. In addition, it is requested that a modifier is included as in
- * the following example:
- *
- * //<Uses | improves on | modified from> LANL Copyright Disclosure C13002/LA-CC-12-022
- *
  * This is LANL Copyright Disclosure C13002/LA-CC-12-022
+ *
  */
 
 /*
@@ -44,6 +41,7 @@
 #include <math.h>
 #include <sys/stat.h>
 #include "gpu.h"
+#include "timer.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -73,8 +71,8 @@ typedef unsigned int uint;
 #define TILE_SIZE 256
 #define DETAILED_TIMING 0
 
-struct timeval timer;
-double t1, t2;
+struct timespec tstart;
+double time_sum;
 
 int is_nvidia = 0;
 
@@ -104,9 +102,9 @@ int main (int argc, const char * argv[])
 
     GPUInit(&context, &queue, &is_nvidia, &program, "sort_kern.cl");
 
-    struct timeval tim;                //random seeding
-    gettimeofday(&tim, NULL);
-    //srand(tim.tv_sec*tim.tv_usec);
+    struct timespec tim;                //random seeding
+    clock_gettime(CLOCK_MONOTONIC, &tim);
+    //srand(tim.tv_sec*tim.tv_nsec);
 
     srand(0);
 
@@ -164,24 +162,20 @@ void sorts( uint length, double min_diff, double max_diff, double min_val ) {
     /* Qsort */
     sorted = (double*)malloc(length*sizeof(double));
     for(uint i = 0; i < length; i++) { sorted[i] = arr[i]; }
-    gettimeofday(&timer, NULL);
-    t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+    cpu_timer_start(&tstart);
     qsort(sorted, length, sizeof(double), compare);
-    gettimeofday(&timer, NULL);
-    t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-    printf("\t%.6lf,", t2 - t1);
+    time_sum += cpu_timer_stop(tstart);
+    printf("\t%.6lf,", time_sum);
 
 
 #ifdef __APPLE_CC__
     /* Heapsort */
     sort_test = (double*)malloc(length*sizeof(double));
     for(uint i = 0; i < length; i++) { sort_test[i] = arr[i]; }
-    gettimeofday(&timer, NULL);
-    t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+    cpu_timer_start(&tstart);
     heapsort(sort_test, length, sizeof(double), compare);
-    gettimeofday(&timer, NULL);
-    t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-    printf("\t%.6lf,", t2 - t1);
+    time_sum += cpu_timer_stop(tstart);
+    printf("\t%.6lf,", time_sum);
 #ifdef CHECK
     for(uint i = 0; i < length; i++) { if (sort_test[i] != sorted[i]) printf("Check failed for heapsort index %d heapsort value %lf gold standard %lf\n",i,sort_test[i],sorted[i]); }
 #endif
@@ -191,12 +185,10 @@ void sorts( uint length, double min_diff, double max_diff, double min_val ) {
     /* Mergesort */
     sort_test = (double*)malloc(length*sizeof(double));
     for(uint i = 0; i < length; i++) { sort_test[i] = arr[i]; }
-    gettimeofday(&timer, NULL);
-    t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+    cpu_timer_start(&tstart);
     mergesort(sort_test, length, sizeof(double), compare);
-    gettimeofday(&timer, NULL);
-    t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-    printf("\t%.6lf,", t2 - t1);
+    time_sum += cpu_timer_stop(tstart);
+    printf("\t%.6lf,", time_sum);
 #ifdef CHECK
     for(uint i = 0; i < length; i++) { if (sort_test[i] != sorted[i]) printf("Check failed for mergesort index %d mergesort value %lf gold standard %lf\n",i,sort_test[i],sorted[i]); }
 #endif
@@ -206,12 +198,10 @@ void sorts( uint length, double min_diff, double max_diff, double min_val ) {
 
 
     /* Hashsort CPU */
-    gettimeofday(&timer, NULL);
-    t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+    cpu_timer_start(&tstart);
     sort_test = hashsort(length, arr, min_diff, min_val, max_val);
-    gettimeofday(&timer, NULL);
-    t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-    printf("\t%.6lf,", t2 - t1);
+    time_sum += cpu_timer_stop(tstart);
+    printf("\t%.6lf,", time_sum);
 #ifdef CHECK
     icount=0;
     for(uint i = 0; i < length; i++) {
@@ -239,7 +229,7 @@ void sorts( uint length, double min_diff, double max_diff, double min_val ) {
           error = clEnqueueWriteBuffer(queue, xcoor_buffer, CL_TRUE, 0, length*sizeof(real), arr_real, 0, NULL, NULL);
           if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
 
-          sorted_buffer = parallelHash(length, xcoor_buffer,  min_diff, max_diff, min_val, max_val, &t2);
+          sorted_buffer = parallelHash(length, xcoor_buffer,  min_diff, max_diff, min_val, max_val, &time_sum);
           clReleaseMemObject(xcoor_buffer);
        }
        free(arr_real);
@@ -250,7 +240,7 @@ void sorts( uint length, double min_diff, double max_diff, double min_val ) {
           if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
           clReleaseMemObject(sorted_buffer);
 
-          printf("\t%.6lf,", t2);
+          printf("\t%.6lf,", time_sum);
           sort_test = (double*)malloc(length*sizeof(double));
           for(uint i = 0; i < length; i++) { sort_test[i] = (double)sort_real[i]; }
           free(sort_real);

@@ -1,9 +1,13 @@
-/* Copyright 2012.  Los Alamos National Security, LLC. This material was produced
- * under U.S. Government contract DE-AC52-06NA25396 for Los Alamos National 
- * Laboratory (LANL), which is operated by Los Alamos National Security, LLC
+/*
+ *  Copyright (c) 2012-2019, Triad National Security, LLC.
+ *  All rights Reserved.
+ *
+ * Copyright 2012-2019.  Triad National Security, LLC. This material was produced
+ * under U.S. Government contract 89233218CNA000001 for Los Alamos National 
+ * Laboratory (LANL), which is operated by Triad National Security, LLC
  * for the U.S. Department of Energy. The U.S. Government has rights to use,
- * reproduce, and distribute this software.  NEITHER THE GOVERNMENT NOR LOS
- * ALAMOS NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR
+ * reproduce, and distribute this software.  NEITHER THE GOVERNMENT NOR
+ * TRIAD NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR
  * ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.  If software is modified
  * to produce derivative works, such modified software should be clearly marked,
  * so as not to confuse it with the version available from LANL.   
@@ -19,15 +23,8 @@
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.”
  *
- * Under this license, it is required to include a reference to this work. We
- * request that each derivative work contain a reference to LANL Copyright 
- * Disclosure C13002/LA-CC-12-022 so that this work’s impact can be roughly
- * measured. In addition, it is requested that a modifier is included as in
- * the following example:
- *
- * //<Uses | improves on | modified from> LANL Copyright Disclosure C13002/LA-CC-12-022
- *
  * This is LANL Copyright Disclosure C13002/LA-CC-12-022
+ *
  */
 
 /*
@@ -45,6 +42,7 @@
 #include <sys/stat.h>
 #include "kdtree/KDTree2d.h"
 #include "gpu.h"
+#include "timer.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -120,8 +118,8 @@ struct neighbor2d {
     uint top;
 };
 
-struct timeval timer;
-double t1, t2;
+struct timespec tstart;
+double time_sum;
 
 int is_nvidia = 0;
 #define BRUTE_FORCE_SIZE_LIMIT 500000
@@ -189,12 +187,10 @@ void neighbors2d( uint mesh_size, int levmx )
 #endif
 
    if (ncells < BRUTE_FORCE_SIZE_LIMIT) {
-      gettimeofday(&timer, NULL);
-      t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+      cpu_timer_start(&tstart);
       neigh2d_gold = neighbors2d_bruteforce(ncells, i, j, level);
-      gettimeofday(&timer, NULL);
-      t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-      printf("\t%.6lf,", t2 - t1);
+      time_sum += cpu_timer_stop(tstart);
+      printf("\t%.6lf,", time_sum);
    } else {
       printf("\tnot_run,  ");
    }
@@ -207,16 +203,14 @@ void neighbors2d( uint mesh_size, int levmx )
    }
 #endif
 
-   gettimeofday(&timer, NULL);
-   t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+   cpu_timer_start(&tstart);
    if (ncells < BRUTE_FORCE_SIZE_LIMIT) {
       neigh2d_test = neighbors2d_kdtree(ncells, mesh_size, x, y, level);
    } else {
       neigh2d_gold = neighbors2d_kdtree(ncells, mesh_size, x, y, level);
    }
-   gettimeofday(&timer, NULL);
-   t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-   printf("\t%.6lf,", t2 - t1);
+   time_sum += cpu_timer_stop(tstart);
+   printf("\t%.6lf,", time_sum);
 
    if (ncells < BRUTE_FORCE_SIZE_LIMIT) {
       //printf("\n\nkdtree comparison\n");
@@ -236,12 +230,10 @@ void neighbors2d( uint mesh_size, int levmx )
    }
 
 
-   gettimeofday(&timer, NULL);
-   t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+   cpu_timer_start(&tstart);
    neigh2d_test = neighbors2d_hashcpu(ncells, mesh_size, levmx, i, j, level);
-   gettimeofday(&timer, NULL);
-   t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-   printf("\t%.6lf,", t2 - t1);
+   time_sum += cpu_timer_stop(tstart);
+   printf("\t%.6lf,", time_sum);
 
    //printf("\n\nhash cpu test\n");
    for(int ic = 0; ic < ncells; ic++) {
@@ -281,14 +273,14 @@ void neighbors2d( uint mesh_size, int levmx )
    error = clEnqueueWriteBuffer(queue, levtable_buffer, CL_TRUE, 0, (levmx+1)*sizeof(int), levtable, 0, NULL, NULL);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
 
-   cl_mem neigh2d_buffer = neighbors2d_hashgpu(ncells, mesh_size, levmx, i_buffer, j_buffer, level_buffer, levtable_buffer, &t2);
+   cl_mem neigh2d_buffer = neighbors2d_hashgpu(ncells, mesh_size, levmx, i_buffer, j_buffer, level_buffer, levtable_buffer, &time_sum);
    clReleaseMemObject(i_buffer);
    clReleaseMemObject(j_buffer);
    clReleaseMemObject(level_buffer);
    clReleaseMemObject(levtable_buffer);
 
    if (neigh2d_buffer != NULL) {
-      printf("\t%.6lf,", t2);
+      printf("\t%.6lf,", time_sum);
 
       neigh2d_test = (struct neighbor2d *)malloc(ncells*sizeof(struct neighbor2d));
       error = clEnqueueReadBuffer(queue, neigh2d_buffer, CL_TRUE, 0, ncells*sizeof(cl_uint4), neigh2d_test, 0, NULL, NULL);
