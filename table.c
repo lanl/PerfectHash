@@ -42,6 +42,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include "gpu.h"
+#include "timer.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -166,25 +167,21 @@ int main(int argc, char *argv[])
       }
 
       int xstride = 51;
-      struct timeval timer;
-      double t1, t2;
+      struct timespec tstart;
+      double time_sum;
 
       // call data table interpolation routine
-      gettimeofday(&timer, NULL);
-      t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+      cpu_timer_start(&tstart);
       value_gold = interpolate_bruteforce(isize, xstride, density_axis, temp_axis,
          density_array, temp_array, data);
-      gettimeofday(&timer, NULL);
-      t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-      printf("\t%.6lf,", t2 - t1);
+      time_sum += cpu_timer_stop(tstart);
+      printf("\t%.6lf,", time_sum);
 
-      gettimeofday(&timer, NULL);
-      t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+      cpu_timer_start(&tstart);
       value_test = interpolate_bisection(isize, xstride, density_axis, temp_axis,
          density_array, temp_array, data);
-      gettimeofday(&timer, NULL);
-      t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-      printf("\t%.6lf,", t2 - t1);
+      time_sum += cpu_timer_stop(tstart);
+      printf("\t%.6lf,", time_sum);
 
       for (i= 0; i<isize; i++){
          if (value_test[i] != value_gold[i]){
@@ -194,13 +191,11 @@ int main(int argc, char *argv[])
 
       free(value_test);
 
-      gettimeofday(&timer, NULL);
-      t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+      cpu_timer_start(&tstart);
       value_test = interpolate_hashcpu(isize, xstride, density_axis, temp_axis,
          density_array, temp_array, data);
-      gettimeofday(&timer, NULL);
-      t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-      printf("\t%.6lf,", t2 - t1);
+      time_sum += cpu_timer_stop(tstart);
+      printf("\t%.6lf,", time_sum);
 
       for (i= 0; i<isize; i++){
          if (value_test[i] != value_gold[i]){
@@ -227,8 +222,8 @@ int main(int argc, char *argv[])
       free(temp_array_real);
 
       cl_mem value_buffer = interpolate_hashgpu(isize, xstride, density_axis_buffer, temp_axis_buffer,
-         density_array_buffer, temp_array_buffer, data_buffer, &t2);
-      printf("\t%.6lf,", t2);
+         density_array_buffer, temp_array_buffer, data_buffer, &time_sum);
+      printf("\t%.6lf,", time_sum);
 
       clReleaseMemObject(density_array_buffer);
       clReleaseMemObject(temp_array_buffer);

@@ -44,6 +44,7 @@
 #include <math.h>
 #include <sys/stat.h>
 #include "gpu.h"
+#include "timer.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -73,8 +74,8 @@ typedef unsigned int uint;
 #define TILE_SIZE 256
 #define DETAILED_TIMING 0
 
-struct timeval timer;
-double t1, t2;
+struct timespec tstart;
+double time_sum;
 
 int is_nvidia = 0;
 
@@ -104,9 +105,9 @@ int main (int argc, const char * argv[])
 
     GPUInit(&context, &queue, &is_nvidia, &program, "sort_kern.cl");
 
-    struct timeval tim;                //random seeding
-    gettimeofday(&tim, NULL);
-    //srand(tim.tv_sec*tim.tv_usec);
+    struct timespec tim;                //random seeding
+    clock_gettime(CLOCK_MONOTONIC, &tim);
+    //srand(tim.tv_sec*tim.tv_nsec);
 
     srand(0);
 
@@ -164,24 +165,20 @@ void sorts( uint length, double min_diff, double max_diff, double min_val ) {
     /* Qsort */
     sorted = (double*)malloc(length*sizeof(double));
     for(uint i = 0; i < length; i++) { sorted[i] = arr[i]; }
-    gettimeofday(&timer, NULL);
-    t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+    cpu_timer_start(&tstart);
     qsort(sorted, length, sizeof(double), compare);
-    gettimeofday(&timer, NULL);
-    t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-    printf("\t%.6lf,", t2 - t1);
+    time_sum += cpu_timer_stop(tstart);
+    printf("\t%.6lf,", time_sum);
 
 
 #ifdef __APPLE_CC__
     /* Heapsort */
     sort_test = (double*)malloc(length*sizeof(double));
     for(uint i = 0; i < length; i++) { sort_test[i] = arr[i]; }
-    gettimeofday(&timer, NULL);
-    t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+    cpu_timer_start(&tstart);
     heapsort(sort_test, length, sizeof(double), compare);
-    gettimeofday(&timer, NULL);
-    t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-    printf("\t%.6lf,", t2 - t1);
+    time_sum += cpu_timer_stop(tstart);
+    printf("\t%.6lf,", time_sum);
 #ifdef CHECK
     for(uint i = 0; i < length; i++) { if (sort_test[i] != sorted[i]) printf("Check failed for heapsort index %d heapsort value %lf gold standard %lf\n",i,sort_test[i],sorted[i]); }
 #endif
@@ -191,12 +188,10 @@ void sorts( uint length, double min_diff, double max_diff, double min_val ) {
     /* Mergesort */
     sort_test = (double*)malloc(length*sizeof(double));
     for(uint i = 0; i < length; i++) { sort_test[i] = arr[i]; }
-    gettimeofday(&timer, NULL);
-    t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+    cpu_timer_start(&tstart);
     mergesort(sort_test, length, sizeof(double), compare);
-    gettimeofday(&timer, NULL);
-    t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-    printf("\t%.6lf,", t2 - t1);
+    time_sum += cpu_timer_stop(tstart);
+    printf("\t%.6lf,", time_sum);
 #ifdef CHECK
     for(uint i = 0; i < length; i++) { if (sort_test[i] != sorted[i]) printf("Check failed for mergesort index %d mergesort value %lf gold standard %lf\n",i,sort_test[i],sorted[i]); }
 #endif
@@ -206,12 +201,10 @@ void sorts( uint length, double min_diff, double max_diff, double min_val ) {
 
 
     /* Hashsort CPU */
-    gettimeofday(&timer, NULL);
-    t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+    cpu_timer_start(&tstart);
     sort_test = hashsort(length, arr, min_diff, min_val, max_val);
-    gettimeofday(&timer, NULL);
-    t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-    printf("\t%.6lf,", t2 - t1);
+    time_sum += cpu_timer_stop(tstart);
+    printf("\t%.6lf,", time_sum);
 #ifdef CHECK
     icount=0;
     for(uint i = 0; i < length; i++) {
@@ -239,7 +232,7 @@ void sorts( uint length, double min_diff, double max_diff, double min_val ) {
           error = clEnqueueWriteBuffer(queue, xcoor_buffer, CL_TRUE, 0, length*sizeof(real), arr_real, 0, NULL, NULL);
           if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
 
-          sorted_buffer = parallelHash(length, xcoor_buffer,  min_diff, max_diff, min_val, max_val, &t2);
+          sorted_buffer = parallelHash(length, xcoor_buffer,  min_diff, max_diff, min_val, max_val, &time_sum);
           clReleaseMemObject(xcoor_buffer);
        }
        free(arr_real);
@@ -250,7 +243,7 @@ void sorts( uint length, double min_diff, double max_diff, double min_val ) {
           if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
           clReleaseMemObject(sorted_buffer);
 
-          printf("\t%.6lf,", t2);
+          printf("\t%.6lf,", time_sum);
           sort_test = (double*)malloc(length*sizeof(double));
           for(uint i = 0; i < length; i++) { sort_test[i] = (double)sort_real[i]; }
           free(sort_real);

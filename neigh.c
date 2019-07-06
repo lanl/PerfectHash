@@ -45,6 +45,7 @@
 #include <sys/stat.h>
 #include "kdtree/KDTree1d.h"
 #include "gpu.h"
+#include "timer.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -87,8 +88,8 @@ struct neighbor {
     uint right;
 };
 
-struct timeval timer;
-double t1, t2;
+struct timespec tstart;
+double time_sum;
 
 int is_nvidia = 0;
 #define BRUTE_FORCE_SIZE_LIMIT 500000
@@ -148,12 +149,10 @@ void neighbors( uint length, double min_diff, double max_diff, double min_val )
    //for (uint i=0; i<length; i++) {printf("i %d xcoor %lf\n",i,xcoor[i]);}
 
    if (length < BRUTE_FORCE_SIZE_LIMIT) {
-      gettimeofday(&timer, NULL);
-      t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+      cpu_timer_start(&tstart);
       neigh_gold = neighbors_bruteforce(length, xcoor, min_val, max_val);
-      gettimeofday(&timer, NULL);
-      t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-      printf("\t%.6lf,", t2 - t1);
+      time_sum += cpu_timer_stop(tstart);
+      printf("\t%.6lf,", time_sum);
 
 #ifdef XXX
       printf("\n");
@@ -169,16 +168,14 @@ void neighbors( uint length, double min_diff, double max_diff, double min_val )
       printf("\tnot_run,  ");
    }
 
-   gettimeofday(&timer, NULL);
-   t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+   cpu_timer_start(&tstart);
    if (length < BRUTE_FORCE_SIZE_LIMIT)
       neigh_test = neighbors_kdtree(length, xcoor, xmin, xmax, min_diff, max_val, min_val);
    else
       neigh_gold = neighbors_kdtree(length, xcoor, xmin, xmax, min_diff, max_val, min_val);
 
-   gettimeofday(&timer, NULL);
-   t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-   printf("\t%.6lf,", t2 - t1);
+   time_sum += cpu_timer_stop(tstart);
+   printf("\t%.6lf,", time_sum);
 
 #ifdef XXX
    for (uint index=0; index<length; index++){
@@ -193,12 +190,10 @@ void neighbors( uint length, double min_diff, double max_diff, double min_val )
    if (length < 200000) free(neigh_test);
 #endif
 
-   gettimeofday(&timer, NULL);
-   t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+   cpu_timer_start(&tstart);
    neigh_test = neighbors_hashcpu(length, xcoor, min_diff, max_val, min_val);
-   gettimeofday(&timer, NULL);
-   t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-   printf("\t%.6lf,", t2 - t1);
+   time_sum += cpu_timer_stop(tstart);
+   printf("\t%.6lf,", time_sum);
 
    for (uint index=0; index<length; index++){
       if (neigh_test[index].left != neigh_gold[index].left || neigh_test[index].right != neigh_gold[index].right){
@@ -218,11 +213,11 @@ void neighbors( uint length, double min_diff, double max_diff, double min_val )
    error = clEnqueueWriteBuffer(queue, data_buffer, CL_TRUE, 0, length*sizeof(real), xcoor, 0, NULL, NULL);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
 
-   cl_mem neigh_buffer = neighbors_hashgpu(length, data_buffer, min_diff, max_val, min_val, &t2);
+   cl_mem neigh_buffer = neighbors_hashgpu(length, data_buffer, min_diff, max_val, min_val, &time_sum);
    clReleaseMemObject(data_buffer);
 
    if (neigh_buffer != NULL) {
-      printf("\t%.6lf,", t2);
+      printf("\t%.6lf,", time_sum);
 
       neigh_test = (struct neighbor *)malloc(length*sizeof(struct neighbor));
       error = clEnqueueReadBuffer(queue, neigh_buffer, CL_TRUE, 0, length*sizeof(cl_uint2), neigh_test, 0, NULL, NULL);

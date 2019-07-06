@@ -46,6 +46,7 @@
 #include <math.h>
 #include <sys/stat.h>
 #include "gpu.h"
+#include "timer.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -123,8 +124,8 @@ void swap_int(int** a, int** b) {
 }
 
 
-struct timeval timer;
-double t1, t2;
+struct timespec tstart;
+double time_sum;
 
 int mesh_size;
 #define MESH_SIZE mesh_size
@@ -212,22 +213,18 @@ int main(int argc, const char * argv[]) {
          printf("\t%d,     ", ncells);
 
          /* Quicksort CPU */
-         gettimeofday(&timer, NULL);
-         t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+         cpu_timer_start(&tstart);
          qsort(sorted, ncells, sizeof(cell), compare_cells);
-         gettimeofday(&timer, NULL);
-         t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-         printf("\t%.6lf,", t2 - t1);
+         time_sum += cpu_timer_stop(tstart);
+         printf("\t%.6lf,", time_sum);
 
          /* Hashsort CPU */
          int* hash_table = NULL;
-	      gettimeofday(&timer, NULL);
-	      t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+	      cpu_timer_start(&tstart);
 
          hash_table = hashsort2d(unsorted, sorted_temp, ncells, mesh, levmx);
-	      gettimeofday(&timer, NULL);
-         t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-	      printf("\t%.6lf,", t2 - t1);
+	      time_sum += cpu_timer_stop(tstart);
+	      printf("\t%.6lf,", time_sum);
 #ifdef CHECK
          icount = 0;
          for(ic = 0; ic < ncells; ic++) {
@@ -251,7 +248,7 @@ int main(int argc, const char * argv[]) {
            error = clEnqueueWriteBuffer(queue, unsorted_mesh_buffer, CL_TRUE, 0, ncells*sizeof(cell), unsorted, 0, NULL, NULL);
            if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
 
-           sorted_mesh_buffer = parallelHash(ncells, levmx, mesh_size, unsorted_mesh_buffer, &t2);
+           sorted_mesh_buffer = parallelHash(ncells, levmx, mesh_size, unsorted_mesh_buffer, &time_sum);
            clReleaseMemObject(unsorted_mesh_buffer);
         }
 
@@ -260,7 +257,7 @@ int main(int argc, const char * argv[]) {
            if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
            clReleaseMemObject(sorted_mesh_buffer);
 
-	   printf("\t%.6lf,", t2);
+	   printf("\t%.6lf,", time_sum);
 
 // Should not have round-off since we are just moving data
 #ifdef CHECK

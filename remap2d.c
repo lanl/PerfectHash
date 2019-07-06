@@ -45,6 +45,7 @@
 #include <sys/stat.h>
 #include "kdtree/KDTree2d.h"
 #include "gpu.h"
+#include "timer.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -117,8 +118,8 @@ void swap_int(int** a, int** b) {
 #define HASH_MAX ( SQ( two_to_the(levmx)*mesh_size ) )
 
 /* CPU Timing Variables */
-struct timeval timer;
-double t1, t2;
+struct timespec tstart;
+double time_sum;
 
 /* OpenCL vairables */
 cl_context context;
@@ -201,8 +202,7 @@ void remaps2d(int mesh_size, int levmx) {
    }
 
    /* CPU Hash Remap */
-   gettimeofday(&timer, NULL);
-   t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+   cpu_timer_start(&tstart);
 
    // Initialize Hash Table
    int hsize = HASH_MAX;
@@ -249,9 +249,8 @@ void remaps2d(int mesh_size, int levmx) {
    }
    free(hash_table);
 
-   gettimeofday(&timer, NULL);
-   t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-   printf(" \t %.6lf,", t2 - t1);
+   time_sum += cpu_timer_stop(tstart);
+   printf(" \t %.6lf,", time_sum);
 
    icount = 0;
    for(int ic = 0; ic < ncells_b; ic++) {
@@ -265,14 +264,12 @@ void remaps2d(int mesh_size, int levmx) {
 
    if (ncells_a < 600000) {
       /* Brute Force Remap */
-      gettimeofday(&timer, NULL);
-      t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+      cpu_timer_start(&tstart);
 
       remap_brute2d(mesh_a, mesh_b, ncells_a, ncells_b, V_a, V_remap, mesh_size);
 
-      gettimeofday(&timer, NULL);
-      t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-      printf(" \t %.6lf,", t2 - t1);
+      time_sum += cpu_timer_stop(tstart);
+      printf(" \t %.6lf,", time_sum);
 
       icount = 0;
       for(int ic = 0; ic < ncells_b; ic++) {
@@ -288,14 +285,12 @@ void remaps2d(int mesh_size, int levmx) {
    for(int ic = 0; ic < ncells_b; ic++) {V_remap[ic] = ZERO;}
 
    /* k-D Tree Remap */
-   gettimeofday(&timer, NULL);
-   t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+   cpu_timer_start(&tstart);
 
    remap_kDtree2d(mesh_a, mesh_b, ncells_a, ncells_b, V_a, V_remap, mesh_size, levmx);
 
-   gettimeofday(&timer, NULL);
-   t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-   printf(" \t %.6lf,", t2 - t1);
+   time_sum += cpu_timer_stop(tstart);
+   printf(" \t %.6lf,", time_sum);
 
    icount = 0;
    for(int ic = 0; ic < ncells_b; ic++) {

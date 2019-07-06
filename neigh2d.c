@@ -45,6 +45,7 @@
 #include <sys/stat.h>
 #include "kdtree/KDTree2d.h"
 #include "gpu.h"
+#include "timer.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -120,8 +121,8 @@ struct neighbor2d {
     uint top;
 };
 
-struct timeval timer;
-double t1, t2;
+struct timespec tstart;
+double time_sum;
 
 int is_nvidia = 0;
 #define BRUTE_FORCE_SIZE_LIMIT 500000
@@ -189,12 +190,10 @@ void neighbors2d( uint mesh_size, int levmx )
 #endif
 
    if (ncells < BRUTE_FORCE_SIZE_LIMIT) {
-      gettimeofday(&timer, NULL);
-      t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+      cpu_timer_start(&tstart);
       neigh2d_gold = neighbors2d_bruteforce(ncells, i, j, level);
-      gettimeofday(&timer, NULL);
-      t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-      printf("\t%.6lf,", t2 - t1);
+      time_sum += cpu_timer_stop(tstart);
+      printf("\t%.6lf,", time_sum);
    } else {
       printf("\tnot_run,  ");
    }
@@ -207,16 +206,14 @@ void neighbors2d( uint mesh_size, int levmx )
    }
 #endif
 
-   gettimeofday(&timer, NULL);
-   t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+   cpu_timer_start(&tstart);
    if (ncells < BRUTE_FORCE_SIZE_LIMIT) {
       neigh2d_test = neighbors2d_kdtree(ncells, mesh_size, x, y, level);
    } else {
       neigh2d_gold = neighbors2d_kdtree(ncells, mesh_size, x, y, level);
    }
-   gettimeofday(&timer, NULL);
-   t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-   printf("\t%.6lf,", t2 - t1);
+   time_sum += cpu_timer_stop(tstart);
+   printf("\t%.6lf,", time_sum);
 
    if (ncells < BRUTE_FORCE_SIZE_LIMIT) {
       //printf("\n\nkdtree comparison\n");
@@ -236,12 +233,10 @@ void neighbors2d( uint mesh_size, int levmx )
    }
 
 
-   gettimeofday(&timer, NULL);
-   t1 = timer.tv_sec+(timer.tv_usec/1000000.0);
+   cpu_timer_start(&tstart);
    neigh2d_test = neighbors2d_hashcpu(ncells, mesh_size, levmx, i, j, level);
-   gettimeofday(&timer, NULL);
-   t2 = timer.tv_sec+(timer.tv_usec/1000000.0);
-   printf("\t%.6lf,", t2 - t1);
+   time_sum += cpu_timer_stop(tstart);
+   printf("\t%.6lf,", time_sum);
 
    //printf("\n\nhash cpu test\n");
    for(int ic = 0; ic < ncells; ic++) {
@@ -281,14 +276,14 @@ void neighbors2d( uint mesh_size, int levmx )
    error = clEnqueueWriteBuffer(queue, levtable_buffer, CL_TRUE, 0, (levmx+1)*sizeof(int), levtable, 0, NULL, NULL);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
 
-   cl_mem neigh2d_buffer = neighbors2d_hashgpu(ncells, mesh_size, levmx, i_buffer, j_buffer, level_buffer, levtable_buffer, &t2);
+   cl_mem neigh2d_buffer = neighbors2d_hashgpu(ncells, mesh_size, levmx, i_buffer, j_buffer, level_buffer, levtable_buffer, &time_sum);
    clReleaseMemObject(i_buffer);
    clReleaseMemObject(j_buffer);
    clReleaseMemObject(level_buffer);
    clReleaseMemObject(levtable_buffer);
 
    if (neigh2d_buffer != NULL) {
-      printf("\t%.6lf,", t2);
+      printf("\t%.6lf,", time_sum);
 
       neigh2d_test = (struct neighbor2d *)malloc(ncells*sizeof(struct neighbor2d));
       error = clEnqueueReadBuffer(queue, neigh2d_buffer, CL_TRUE, 0, ncells*sizeof(cl_uint4), neigh2d_test, 0, NULL, NULL);

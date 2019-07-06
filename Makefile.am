@@ -4,36 +4,36 @@ ACLOCAL_AMFLAGS = -I m4
 
 SUBDIRS = kdtree
 
-sort_C_SRCS = sort.c gpu.c
-sort_H_SRCS = gpu.h
+sort_C_SRCS = sort.c gpu.c timer.c
+sort_H_SRCS = gpu.h timer.h
 sort_SOURCES = ${sort_C_SRCS} ${sort_H_SRCS}
 
-sort2d_C_SRCS = sort2d.c gpu.c
-sort2d_H_SRCS = gpu.h
+sort2d_C_SRCS = sort2d.c gpu.c timer.c
+sort2d_H_SRCS = gpu.h timer.h
 sort2d_SOURCES = ${sort2d_C_SRCS} ${sort2d_H_SRCS}
 
-remap_C_SRCS = remap.c gpu.c
-remap_H_SRCS = gpu.h
+remap_C_SRCS = remap.c gpu.c timer.c
+remap_H_SRCS = gpu.h timer.h
 remap_SOURCES = ${remap_C_SRCS} ${remap_H_SRCS}
 remap_LDADD = kdtree/libkdtree.la
 
-remap2d_C_SRCS = remap2d.c gpu.c
-remap2d_H_SRCS = gpu.h
+remap2d_C_SRCS = remap2d.c gpu.c timer.c
+remap2d_H_SRCS = gpu.h timer.h
 remap2d_SOURCES = ${remap2d_C_SRCS} ${remap2d_H_SRCS}
 remap2d_LDADD = kdtree/libkdtree.la
 
-neigh_C_SRCS = neigh.c gpu.c
-neigh_H_SRCS = gpu.h
+neigh_C_SRCS = neigh.c gpu.c timer.c
+neigh_H_SRCS = gpu.h timer.h
 neigh_SOURCES = ${neigh_C_SRCS} ${neigh_H_SRCS}
 neigh_LDADD = kdtree/libkdtree.la
 
-neigh2d_C_SRCS = neigh2d.c gpu.c
-neigh2d_H_SRCS = gpu.h
+neigh2d_C_SRCS = neigh2d.c gpu.c timer.c
+neigh2d_H_SRCS = gpu.h timer.h
 neigh2d_SOURCES = ${neigh2d_C_SRCS} ${neigh2d_H_SRCS}
 neigh2d_LDADD = kdtree/libkdtree.la
 
-table_C_SRCS = table.c gpu.c
-table_H_SRCS = gpu.h
+table_C_SRCS = table.c gpu.c timer.c
+table_H_SRCS = gpu.h timer.h
 table_SOURCES = ${table_C_SRCS} ${table_H_SRCS}
 
 LDADD = -lm
