@@ -474,9 +474,9 @@ double generate_array_wminmax( uint size, double *ptr, double *xmin, double *xma
 	int index, front = 0;
     double running_min = maxdx;
 		
-	struct timeval tim;				//random seeding
-	gettimeofday(&tim, NULL);
-	//srand(tim.tv_sec*tim.tv_usec);
+	struct timespec tim;				//random seeding
+	cpu_timer_start(&tim);
+	//srand(tim.tv_sec*tim.tv_nsec);
 	
 	srand(0);
 	

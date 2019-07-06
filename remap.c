@@ -535,9 +535,9 @@ void generateRealCells( int size, struct rcell *ptr, int mindx, int maxdx, real 
     int i, index, front = 0;
     struct rcell swap;
     
-    struct timeval tim;                //random seeding
-    gettimeofday(&tim, NULL);
-    //srand(tim.tv_sec*tim.tv_usec);
+    struct timespec tim;                //random seeding
+    clock_gettime(&tim);
+    //srand(tim.tv_sec*tim.tv_nsec);
     
     srand(seed);
         seed++;
