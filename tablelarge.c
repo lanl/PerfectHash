@@ -82,13 +82,13 @@ double *interpolate_hashcpu(int isize, int xstride, double *density_axis, double
 cl_mem interpolate_hashgpu(int isize, int xstride, cl_mem density_axis_buffer, cl_mem temp_axis_buffer,
       cl_mem density_array_buffer, cl_mem temp_array_buffer, cl_mem data_buffer, double *time);
 
-#include "table.data"
+#include "tablelarge.data"
 
 int main(int argc, char *argv[])
 {
    cl_int error;
 
-   GPUInit(&context, &queue, &is_nvidia, &program, "table_kern.cl");
+   GPUInit(&context, &queue, &is_nvidia, &program, "tablelarge_kern.cl");
 
    interpolate_kernel = clCreateKernel(program, "interpolate_kernel", &error);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
@@ -187,6 +187,7 @@ int main(int argc, char *argv[])
 
       free(value_test);
 
+#ifdef XXX
       cpu_timer_start(&tstart);
       value_test = interpolate_hashcpu(isize, xstride, density_axis, temp_axis,
          density_array, temp_array, data);
@@ -200,7 +201,9 @@ int main(int argc, char *argv[])
       }
 
       free(value_test);
+#endif
 
+//#ifdef XXX
       real *density_array_real = (real *)malloc(isize*sizeof(real));
       for (i=0; i<isize; i++) { density_array_real[i] = (real)density_array[i]; }
       cl_mem density_array_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, isize*sizeof(real), NULL, &ierror);
@@ -241,6 +244,7 @@ int main(int argc, char *argv[])
       }
 
       free(value_test);
+//#endif
 
       printf("\n");
 
@@ -332,9 +336,8 @@ double *interpolate_hashcpu(int isize, int xstride, double *density_axis, double
 {
    int i;
    // Computes a constant increment for each axis data look-up
-   double density_increment = (density_axis[50]-density_axis[0])/50.0;
-   double temp_increment = (temp_axis[22]-temp_axis[0])/22.0;
-
+   double density_increment = (density_axis[110]-density_axis[0])/111.0;
+   double temp_increment = (temp_axis[77]-temp_axis[0])/78.0;
    //int density_axis_size = sizeof(density_axis)/sizeof(density_axis[0]);
    //int temp_axis_size = sizeof(temp_axis)/sizeof(temp_axis[0]);
 

@@ -1,4 +1,4 @@
-bin_PROGRAMS = sort sort2d remap remap2d neigh neigh2d table
+bin_PROGRAMS = sort sort2d remap remap2d neigh neigh2d table tablelarge
 
 ACLOCAL_AMFLAGS = -I m4
 
@@ -34,11 +34,15 @@ neigh2d_LDADD = kdtree/libkdtree.la
 
 table_C_SRCS = table.c gpu.c timer.c
 table_H_SRCS = gpu.h timer.h
-table_SOURCES = ${table_C_SRCS} ${table_H_SRCS}
+table_SOURCES = ${table_C_SRCS} ${table_H_SRCS} table.data
+
+tablelarge_C_SRCS = tablelarge.c gpu.c timer.c
+tablelarge_H_SRCS = gpu.h timer.h
+tablelarge_SOURCES = ${tablelarge_C_SRCS} ${tablelarge_H_SRCS} tablelarge.data
 
 LDADD = -lm
 
-EXTRA_DIST = sort_kern.cl sort2d_kern.cl remap_kern.cl remap2d_kern.cl neigh_kern.cl neigh2d_kern.cl table_kern.cl table.data config.h.in APACHE_LICENSE-2_0 AUTHORS README LICENSE Papers.bib NOTICE
+EXTRA_DIST = sort_kern.cl sort2d_kern.cl remap_kern.cl remap2d_kern.cl neigh_kern.cl neigh2d_kern.cl table_kern.cl table.data tablelarge_kern.cl tablelarge.data config.h.in APACHE_LICENSE-2_0 AUTHORS README LICENSE Papers.bib NOTICE
 
 kdtree/libkdtree.la:
 	cd kdtree; make
