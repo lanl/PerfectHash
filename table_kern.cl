@@ -76,10 +76,10 @@ __kernel void interpolate_kernel(
    barrier(CLK_LOCAL_MEM_FENCE);
 
    // Computes a constant increment for each axis data look-up
-   real x_increment = (xaxis[50]-xaxis[0])/50.0;
-   real y_increment = (yaxis[22]-yaxis[0])/22.0;
+   real x_increment = (xaxis[xaxis_size-1]-xaxis[0])/(double)(xaxis_size-1);
+   real y_increment = (yaxis[yaxis_size-1]-yaxis[0])/(double)(yaxis_size-1);
 
-   int xstride = 51;
+   int xstride = xaxis_size;
 
    if (gid < isize) {
       // Loads the next data value

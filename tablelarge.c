@@ -72,14 +72,14 @@ cl_program program;
 int is_nvidia=0;
 
 double random_normal_dist(void);
-double *interpolate_bruteforce(int isize, int xstride, double *density_axis, double *temp_axis,
+double *interpolate_bruteforce(int isize, int xstride, int density_axis_size, int temp_axis_size, double *density_axis, double *temp_axis,
       double *density_array, double *temp_array, double *data);
-double *interpolate_bisection(int isize, int xstride, double *density_axis, double *temp_axis,
+double *interpolate_bisection(int isize, int xstride, int density_axis_size, int temp_axis_size, double *density_axis, double *temp_axis,
       double *density_array, double *temp_array, double *data);
 int bisection(double *axis, int axis_size, double value);
-double *interpolate_hashcpu(int isize, int xstride, double *density_axis, double *temp_axis,
+double *interpolate_hashcpu(int isize, int xstride, int density_axis_size, int temp_axis_size, double *density_axis, double *temp_axis,
       double *density_array, double *temp_array, double *data);
-cl_mem interpolate_hashgpu(int isize, int xstride, cl_mem density_axis_buffer, cl_mem temp_axis_buffer,
+cl_mem interpolate_hashgpu(int isize, int xstride, int density_axis_size, int temp_axis_size, cl_mem density_axis_buffer, cl_mem temp_axis_buffer,
       cl_mem density_array_buffer, cl_mem temp_array_buffer, cl_mem data_buffer, double *time);
 
 #include "tablelarge.data"
@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
 {
    cl_int error;
 
-   GPUInit(&context, &queue, &is_nvidia, &program, "tablelarge_kern.cl");
+   GPUInit(&context, &queue, &is_nvidia, &program, "table_kern.cl");
 
    interpolate_kernel = clCreateKernel(program, "interpolate_kernel", &error);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
@@ -168,13 +168,27 @@ int main(int argc, char *argv[])
 
       // call data table interpolation routine
       cpu_timer_start(&tstart);
-      value_gold = interpolate_bruteforce(isize, xstride, density_axis, temp_axis,
+      value_gold = interpolate_bruteforce(isize, xstride, density_axis_size, temp_axis_size, density_axis, temp_axis,
          density_array, temp_array, data);
       time_sum += cpu_timer_stop(tstart);
       printf("\t%.6lf,", time_sum);
 
       cpu_timer_start(&tstart);
-      value_test = interpolate_bisection(isize, xstride, density_axis, temp_axis,
+      value_test = interpolate_bisection(isize, xstride, density_axis_size, temp_axis_size, density_axis, temp_axis,
+         density_array, temp_array, data);
+      time_sum += cpu_timer_stop(tstart);
+      printf("\t%.6lf,", time_sum);
+
+      for (i= 0; i<isize; i++){
+         if (value_test[i] != value_gold[i]){
+            printf("Warning %d does not match -- test %lf gold %lf\n",i,value_test[i],value_gold[i]);
+         }
+      }
+
+      free(value_test);
+
+      cpu_timer_start(&tstart);
+      value_test = interpolate_hashcpu(isize, xstride, density_axis_size, temp_axis_size, density_axis, temp_axis,
          density_array, temp_array, data);
       time_sum += cpu_timer_stop(tstart);
       printf("\t%.6lf,", time_sum);
@@ -188,22 +202,6 @@ int main(int argc, char *argv[])
       free(value_test);
 
 #ifdef XXX
-      cpu_timer_start(&tstart);
-      value_test = interpolate_hashcpu(isize, xstride, density_axis, temp_axis,
-         density_array, temp_array, data);
-      time_sum += cpu_timer_stop(tstart);
-      printf("\t%.6lf,", time_sum);
-
-      for (i= 0; i<isize; i++){
-         if (value_test[i] != value_gold[i]){
-            printf("Warning %d does not match -- test %lf gold %lf\n",i,value_test[i],value_gold[i]);
-         }
-      }
-
-      free(value_test);
-#endif
-
-//#ifdef XXX
       real *density_array_real = (real *)malloc(isize*sizeof(real));
       for (i=0; i<isize; i++) { density_array_real[i] = (real)density_array[i]; }
       cl_mem density_array_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, isize*sizeof(real), NULL, &ierror);
@@ -220,7 +218,7 @@ int main(int argc, char *argv[])
       if (ierror != CL_SUCCESS) printf("Error is %d at line %d\n",ierror,__LINE__);
       free(temp_array_real);
 
-      cl_mem value_buffer = interpolate_hashgpu(isize, xstride, density_axis_buffer, temp_axis_buffer,
+      cl_mem value_buffer = interpolate_hashgpu(isize, xstride, density_axis_size, temp_axis_size, density_axis_buffer, temp_axis_buffer,
          density_array_buffer, temp_array_buffer, data_buffer, &time_sum);
       printf("\t%.6lf,", time_sum);
 
@@ -244,7 +242,7 @@ int main(int argc, char *argv[])
       }
 
       free(value_test);
-//#endif
+#endif
 
       printf("\n");
 
@@ -269,7 +267,7 @@ double random_normal_dist(void)
     return(result);
 }
 
-double *interpolate_bruteforce(int isize, int xstride, double *density_axis, double *temp_axis,
+double *interpolate_bruteforce(int isize, int xstride, int density_axis_size, int temp_axis_size, double *density_axis, double *temp_axis,
       double *density_array, double *temp_array, double *data)
 {
    int i;
@@ -279,8 +277,8 @@ double *interpolate_bruteforce(int isize, int xstride, double *density_axis, dou
    for (i = 0; i<isize; i++){
       int temp_slot, density_slot;
 
-      for (temp_slot=0; temp_slot<21 && temp_array[i] > temp_axis[temp_slot+1]; temp_slot++);
-      for (density_slot=0; density_slot<49 && density_array[i] > density_axis[density_slot+1]; density_slot++);
+      for (temp_slot=0; temp_slot<temp_axis_size-2 && temp_array[i] > temp_axis[temp_slot+1]; temp_slot++);
+      for (density_slot=0; density_slot<density_axis_size-2 && density_array[i] > density_axis[density_slot+1]; density_slot++);
 
       double xfrac = (density_array[i]-density_axis[density_slot])/(density_axis[density_slot+1]-density_axis[density_slot]);
       double yfrac = (temp_array[i]-temp_axis[temp_slot])/(temp_axis[temp_slot+1]-temp_axis[temp_slot]);
@@ -294,7 +292,7 @@ double *interpolate_bruteforce(int isize, int xstride, double *density_axis, dou
    return(value_array);
 }
 
-double *interpolate_bisection(int isize, int xstride, double *density_axis, double *temp_axis,
+double *interpolate_bisection(int isize, int xstride, int density_axis_size, int temp_axis_size, double *density_axis, double *temp_axis,
       double *density_array, double *temp_array, double *data)
 {
    int i;
@@ -302,8 +300,8 @@ double *interpolate_bisection(int isize, int xstride, double *density_axis, doub
    double *value_array=(double *)malloc(isize*sizeof(double));
 
    for (i = 0; i<isize; i++){
-      int temp_slot = bisection(temp_axis, 21, temp_array[i]);
-      int density_slot = bisection(density_axis, 49, density_array[i]);
+      int temp_slot = bisection(temp_axis, temp_axis_size-2, temp_array[i]);
+      int density_slot = bisection(density_axis, density_axis_size-2, density_array[i]);
 
       double xfrac = (density_array[i]-density_axis[density_slot])/(density_axis[density_slot+1]-density_axis[density_slot]);
       double yfrac = (temp_array[i]-temp_axis[temp_slot])/(temp_axis[temp_slot+1]-temp_axis[temp_slot]);
@@ -331,18 +329,13 @@ int bisection(double *axis, int axis_size, double value)
    return(ibot);
 }
 
-double *interpolate_hashcpu(int isize, int xstride, double *density_axis, double *temp_axis,
+double *interpolate_hashcpu(int isize, int xstride, int density_axis_size, int temp_axis_size, double *density_axis, double *temp_axis,
       double *density_array, double *temp_array, double *data)
 {
    int i;
    // Computes a constant increment for each axis data look-up
-   double density_increment = (density_axis[110]-density_axis[0])/111.0;
-   double temp_increment = (temp_axis[77]-temp_axis[0])/78.0;
-   //int density_axis_size = sizeof(density_axis)/sizeof(density_axis[0]);
-   //int temp_axis_size = sizeof(temp_axis)/sizeof(temp_axis[0]);
-
-   //double density_increment = (density_axis[density_axis_size-1]-density_axis[0])/(double)(density_axis_size-1);
-   //double temp_increment = (temp_axis[temp_axis_size-1]-temp_axis[0])/(double)(temp_axis_size-1);
+   double density_increment = (density_axis[density_axis_size-1]-density_axis[0])/(double)(density_axis_size-1);
+   double temp_increment = (temp_axis[temp_axis_size-1]-temp_axis[0])/(double)(temp_axis_size-1);
 
    double *value_array=(double *)malloc(isize*sizeof(double));
 
@@ -363,7 +356,7 @@ double *interpolate_hashcpu(int isize, int xstride, double *density_axis, double
    return(value_array);
 }
 
-cl_mem interpolate_hashgpu(int isize, int xstride, cl_mem density_axis_buffer, cl_mem temp_axis_buffer,
+cl_mem interpolate_hashgpu(int isize, int xstride, int density_axis_size, int temp_axis_size, cl_mem density_axis_buffer, cl_mem temp_axis_buffer,
       cl_mem density_array_buffer, cl_mem temp_array_buffer, cl_mem data_buffer, double *time)
 {
    int i;
@@ -372,8 +365,6 @@ cl_mem interpolate_hashgpu(int isize, int xstride, cl_mem density_axis_buffer, c
    *time = 0.0;
 
    int data_size = sizeof(data)/sizeof(data[0]);
-   int density_axis_size = sizeof(density_axis)/sizeof(density_axis[0]);
-   int temp_axis_size = sizeof(temp_axis)/sizeof(temp_axis[0]);
 
    cl_mem value_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, isize*sizeof(real), NULL, &ierror);
    if (ierror != CL_SUCCESS) printf("Error is %d at line %d\n",ierror,__LINE__);
