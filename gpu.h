@@ -43,7 +43,7 @@
 #include <CL/cl.h>
 #endif
 
-cl_kernel interpolate_kernel;
+extern cl_kernel interpolate_kernel;
 
 void GPUInit(cl_context *context, cl_command_queue *queue, int *is_nvidia, cl_program *program, char *filename);
 int device_double_support(cl_device_id device);
