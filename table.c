@@ -41,6 +41,8 @@
 #include "gpu.h"
 #include "timer.h"
 
+cl_kernel interpolate_kernel;
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
