@@ -198,7 +198,7 @@ if test "${enable_opencl}" != "no"; then
            fi
          fi
          if test "$found" = "no"; then
-           AC_CHECK_FILE(/usr/lib/x86_64-linux-gnu/libnvidia-opencl.so.1, LIBS="${LIBS} -L/usr/lib/x86_64-linux-gnu" && found="yes")
+           AC_CHECK_FILE(/usr/lib/x86_64-linux-gnu/libnvidia-opencl.so.1, LIBS="${LIBS} -L/usr/lib/x86_64-linux-gnu -lnvidia-opencl" && found="yes")
            if test "${found}" = "yes"; then
              if test "${RPATH_LIBS}x" = "x"; then
                RPATH_LIBS="/usr/lib/x86_64-linux-gnu"
