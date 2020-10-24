@@ -33,9 +33,9 @@ Authors: Bob Robey       XCP-2   brobey@lanl.gov
          David Nicholaeff        dnic@lanl.gov, mtrxknight@aol.com
          Rachel Robey            rnrobey@gmail.com
 
-This code uses autoconf/automake/libtool for builds. To build the code:
+This code uses cmake for builds. To build the code:
 
-./configure
+cmake .
 make
 
 There will be several executables built -- sort, sort2d, neigh, neigh2d, remap, remap2d, table

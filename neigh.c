@@ -109,11 +109,13 @@ int main (int argc, const char * argv[]) {
 
     cl_int error;
 
+#ifdef HAVE_OPENCL
     GPUInit(&context, &queue, &is_nvidia, &program, "neigh_kern.cl");
 
     init_kernel = clCreateKernel(program, "init_kern", &error);
     hash_kernel = clCreateKernel(program, "hash_kern", &error);
     get_neighbor_kernel = clCreateKernel(program, "get_neighbor_kern", &error);
+#endif
 
     printf("\n    Neighbors Performance Results\n\n");
     if (LONG_RUNS == 1)
@@ -204,6 +206,7 @@ void neighbors( uint length, double min_diff, double max_diff, double min_val )
    free(neigh_test);
 
 
+#ifdef HAVE_OPENCL
    cl_int error = 0;
    cl_mem data_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, length*sizeof(real), NULL, &error);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
@@ -234,6 +237,7 @@ void neighbors( uint length, double min_diff, double max_diff, double min_val )
    } else {
       printf("\tnot_run,  ");
    }
+#endif
 
    free(xcoor);
    free(xmin);
@@ -343,6 +347,7 @@ struct neighbor *neighbors_hashcpu( uint length, double *xcoor, double min_diff,
    return(neigh);
 }
 
+#ifdef HAVE_OPENCL
 /* find right and left neighbors of element at index index in array of size length */
 cl_mem neighbors_hashgpu( uint length, cl_mem data_buffer, double min_diff, double max_val, double min_val, double *time ) 
 {
@@ -463,6 +468,7 @@ cl_mem neighbors_hashgpu( uint length, cl_mem data_buffer, double min_diff, doub
    return(neighbor_buffer);
 
 }
+#endif
 
 double generate_array_wminmax( uint size, double *ptr, double *xmin, double *xmax,
      double mindx, double maxdx, double min, double *max ) {

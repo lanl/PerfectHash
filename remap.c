@@ -117,10 +117,12 @@ int main (int argc, const char * argv[]) {
 
     cl_int error;
 
+#ifdef HAVE_OPENCL
     GPUInit(&context, &queue, &is_nvidia, &program, "remap_kern.cl");
 
     cHash_kernel = clCreateKernel(program, "cellHash_kern", &error);
     remap1_kernel = clCreateKernel(program, "remap1_kern", &error);
+#endif
 
     printf("             REMAP\n\n");
 
@@ -302,6 +304,7 @@ void remaps( int asize, int bsize, double min_diff, double max_diff, double min_
 
     if (is_nvidia || (max_diff < 8.0 && asize < 20000000) || asize < 10000000) {
 
+#ifdef HAVE_OPENCL
        /* GPU Hash Remap1 */
        cl_int error;
     
@@ -345,6 +348,7 @@ void remaps( int asize, int bsize, double min_diff, double max_diff, double min_
        clReleaseMemObject(a_buffer);
        clReleaseMemObject(b_buffer);
        clReleaseMemObject(v_buffer);
+#endif
     } else {
        printf("not_run   ");
     }
@@ -560,6 +564,7 @@ void generateRealCells( int size, struct rcell *ptr, int mindx, int maxdx, real 
 }
 
 
+#ifdef HAVE_OPENCL
 cl_mem parallelRemap1( cl_mem a_buffer, cl_mem v_buffer, cl_mem b_buffer, uint asize, uint bsize, real max_a, real min_val, real min_diff, double *time ) {
     
     cl_int error = 0;
@@ -651,4 +656,5 @@ cl_mem parallelRemap1( cl_mem a_buffer, cl_mem v_buffer, cl_mem b_buffer, uint a
     return remap_buffer;
 
 }
+#endif
 

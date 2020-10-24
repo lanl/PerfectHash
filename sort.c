@@ -100,7 +100,9 @@ int main (int argc, const char * argv[])
 {
     cl_int error;
 
+#ifdef HAVE_OPENCL
     GPUInit(&context, &queue, &is_nvidia, &program, "sort_kern.cl");
+#endif
 
     struct timespec tim;                //random seeding
     clock_gettime(CLOCK_MONOTONIC, &tim);
@@ -108,11 +110,13 @@ int main (int argc, const char * argv[])
 
     srand(0);
 
+#ifdef HAVE_OPENCL
     init_kernel = clCreateKernel(program, "init_kern", &error);
     hash_kernel = clCreateKernel(program, "hash_kern", &error);
     scan1_kernel = clCreateKernel(program, "scan1", &error);
     scan2_kernel = clCreateKernel(program, "scan2", &error);
     scan3_kernel = clCreateKernel(program, "scan3", &error);
+#endif
 
     printf("\n    Sorting Performance Results\n\n");
 #ifdef __APPLE_CC__
@@ -215,6 +219,7 @@ void sorts( uint length, double min_diff, double max_diff, double min_val ) {
     sort_test = NULL;
 
 
+#ifdef HAVE_OPENCL
     uint hash_size = (uint)((max_val - min_val)/min_diff + 2.5);
     uint alloc_size = 2*length*sizeof(real)+hash_size*sizeof(int)+(hash_size+hash_size-1)/TILE_SIZE*sizeof(int);
     //printf("\tSize is %lu\t", alloc_size);
@@ -263,6 +268,7 @@ void sorts( uint length, double min_diff, double max_diff, double min_val ) {
     } else {
        printf("\tnot_run,  ");
     }
+#endif
 
 
     free(sorted);
@@ -333,6 +339,7 @@ double generate_array( uint size, double *ptr, double mindx, double maxdx, doubl
     return running_min;
 }
 
+#ifdef HAVE_OPENCL
 cl_mem parallelHash( uint length, cl_mem xcoor_buffer, double min_diff, double max_diff, double min_val, double max_val, double *time ) {
 
     cl_mem sorted_buffer, hash_buffer, ioffset_buffer;
@@ -545,4 +552,5 @@ cl_mem parallelHash( uint length, cl_mem xcoor_buffer, double min_diff, double m
     
     return(sorted_buffer);
 }
+#endif
 

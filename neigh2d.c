@@ -142,11 +142,13 @@ int main (int argc, const char * argv[]) {
 
     cl_int error;
 
+#ifdef HAVE_OPENCL
     GPUInit(&context, &queue, &is_nvidia, &program, "neigh2d_kern.cl");
 
     init_kernel = clCreateKernel(program, "init_kern", &error);
     hash_setup_kernel = clCreateKernel(program, "hash_setup_kern", &error);
     calc_neighbor2d_kernel = clCreateKernel(program, "calc_neighbor2d_kern", &error);
+#endif
 
     printf("\n    2D Neighbors Performance Results\n\n");
     printf("Size,   \tncells    \tBrute     \tkDtree   \tHash CPU, \tHash GPU\n");
@@ -250,6 +252,7 @@ void neighbors2d( uint mesh_size, int levmx )
    }
    free(neigh2d_test);
 
+#ifdef HAVE_OPENCL
    cl_int error = 0;
    cl_mem i_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells*sizeof(int), NULL, &error);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
@@ -304,6 +307,7 @@ void neighbors2d( uint mesh_size, int levmx )
    } else {
       printf("\tnot_run,   ");
    }
+#endif
 
 
 
@@ -483,6 +487,7 @@ struct neighbor2d *neighbors2d_hashcpu( uint ncells, int mesh_size, int levmx, i
    return(neigh2d);
 }
 
+#ifdef HAVE_OPENCL
 cl_mem neighbors2d_hashgpu( uint ncells, int mesh_size, int levmx, cl_mem i_buffer, cl_mem j_buffer,
       cl_mem level_buffer, cl_mem levtable_buffer, double *time )
 {
@@ -614,6 +619,7 @@ cl_mem neighbors2d_hashgpu( uint ncells, int mesh_size, int levmx, cl_mem i_buff
    return(neighbor2d_buffer);
 
 }
+#endif
 
 // adaptiveMeshConstructor()
 // Inputs: n (width/height of the square mesh), l (maximum level of refinement),

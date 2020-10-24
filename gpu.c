@@ -57,6 +57,7 @@ typedef cl_float4 cl_real4;
 #define DEVICE_DETECT_DEBUG 0
 #endif
 
+#ifdef HAVE_OPENCL
 void GPUInit(cl_context *context, cl_command_queue *queue, int *is_nvidia, cl_program *program, char *filename) {
     
    cl_platform_id* platforms;
@@ -399,4 +400,5 @@ void device_info(cl_device_id device){
    printf(  "    CL_DEVICE_EXTENSIONS                 : %s\n\n", info);
 
 }
+#endif
 

@@ -81,8 +81,10 @@ double *interpolate_bisection(int isize, int xstride, int density_axis_size, int
 int bisection(double *axis, int axis_size, double value);
 double *interpolate_hashcpu(int isize, int xstride, int density_axis_size, int temp_axis_size, double *density_axis, double *temp_axis,
       double *density_array, double *temp_array, double *data);
+#ifdef HAVE_OPENCL
 cl_mem interpolate_hashgpu(int isize, int xstride, int density_axis_size, int temp_axis_size, cl_mem density_axis_buffer, cl_mem temp_axis_buffer,
       cl_mem density_array_buffer, cl_mem temp_array_buffer, cl_mem data_buffer, double *time);
+#endif
 
 #include "tablelarge.data"
 
@@ -90,10 +92,12 @@ int main(int argc, char *argv[])
 {
    cl_int error;
 
+#ifdef HAVE_OPENCL
    GPUInit(&context, &queue, &is_nvidia, &program, "table_kern.cl");
 
    interpolate_kernel = clCreateKernel(program, "interpolate_kernel", &error);
    if (error != CL_SUCCESS) printf("Error is %d at line %d\n",error,__LINE__);
+#endif
 
    int i;
 
@@ -121,6 +125,7 @@ int main(int argc, char *argv[])
       temp_axis[i] = temp_axis[0]+(double)i*temp_increment;
    }
 
+#ifdef HAVE_OPENCL
    real *data_real = (real *)malloc(data_size*sizeof(real));
    for (i=0; i<data_size; i++) { data_real[i] = (real)data[i]; }
    cl_mem data_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, data_size*sizeof(real), NULL, &ierror);
@@ -144,6 +149,7 @@ int main(int argc, char *argv[])
    ierror = clEnqueueWriteBuffer(queue, temp_axis_buffer, CL_TRUE, 0, temp_axis_size*sizeof(real), temp_axis_real, 0, NULL, NULL);
    if (ierror != CL_SUCCESS) printf("Error is %d at line %d\n",ierror,__LINE__);
    free(temp_axis_real);
+#endif
 
    printf("\n    Table Interpolate Performance Results\n\n");
 
@@ -251,9 +257,11 @@ int main(int argc, char *argv[])
       free(value_gold);
    }
 
+#ifdef HAVE_OPENCL
    clReleaseMemObject(data_buffer);
    clReleaseMemObject(density_axis_buffer);
    clReleaseMemObject(temp_axis_buffer);
+#endif
 }
 
 
@@ -358,6 +366,7 @@ double *interpolate_hashcpu(int isize, int xstride, int density_axis_size, int t
    return(value_array);
 }
 
+#ifdef HAVE_OPENCL
 cl_mem interpolate_hashgpu(int isize, int xstride, int density_axis_size, int temp_axis_size, cl_mem density_axis_buffer, cl_mem temp_axis_buffer,
       cl_mem density_array_buffer, cl_mem temp_array_buffer, cl_mem data_buffer, double *time)
 {
@@ -421,4 +430,5 @@ cl_mem interpolate_hashgpu(int isize, int xstride, int density_axis_size, int te
 
    return(value_buffer);
 }
+#endif
 

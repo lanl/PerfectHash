@@ -144,10 +144,12 @@ int main (int argc, const char * argv[]) {
     //srand(iseed);
     srand(1);
 
+#ifdef HAVE_OPENCL
     GPUInit(&context, &queue, &is_nvidia, &program, "remap2d_kern.cl");
 
     remap_c_kernel = clCreateKernel(program,"remap_hash_creation_kern", &error);
     remap_r_kernel = clCreateKernel(program,"remap_hash_retrieval_kern", &error);
+#endif
 
     printf("\t \t REMAP 2D \t \t\n Mesh Size, levmx, \t ncells_a, \t ncells_b, \t CPU Hash, \t CPU Brute, \t CPU k-D Tree, \t GPU Hash\n");
     for(mesh_size = 128; mesh_size <= 1024; mesh_size *= 2) {
@@ -295,6 +297,7 @@ void remaps2d(int mesh_size, int levmx) {
    if(icount > 0)
       printf("Error in the k-D Tree Remap for %d cells out of %d.\n",icount,ncells_b);
 
+#ifdef HAVE_OPENCL
    // Reset remap array for GPU Hash Remap
    for(int ic = 0; ic < ncells_b; ic++) {V_remap[ic] = ZERO;}
 
@@ -365,6 +368,7 @@ void remaps2d(int mesh_size, int levmx) {
    } else {
       printf(" \t not_run,   \n");
    }
+#endif
 
    free(V_a);
    free(V_b);
@@ -378,6 +382,7 @@ void remaps2d(int mesh_size, int levmx) {
    free(mesh_b.level);
 }
 
+#ifdef HAVE_OPENCL
 cl_mem parallelRemap2D(cell mesh_a, cl_mem a_i_buffer, cl_mem a_j_buffer, cl_mem a_level_buffer,
                                     cl_mem b_i_buffer, cl_mem b_j_buffer, cl_mem b_level_buffer,
                                     cl_mem V_buffer, int asize, int bsize, int mesh_size, int levmx) {
@@ -479,6 +484,7 @@ cl_mem parallelRemap2D(cell mesh_a, cl_mem a_i_buffer, cl_mem a_j_buffer, cl_mem
     return remap_buffer;
 
 }
+#endif
 
 // adaptiveMeshConstructor()
 // Inputs: n (width/height of the square mesh), l (maximum level of refinement),

@@ -140,12 +140,14 @@ int compare_cells(const void* a, const void* b);
 
 int is_nvidia = 0;
 
+#ifdef HAVE_OPENCL
 cl_context context;
 cl_command_queue queue;
 cl_program program;
 cl_kernel init_kernel, hash_kernel, scan1_kernel, scan2_kernel, scan3_kernel;
 
 cl_mem parallelHash(int ncells, int levmx, int mesh_size, cl_mem mesh_buffer, double *time);
+#endif
 
 /*
 // XXX Will comparison operator have access to levmx?
@@ -159,6 +161,7 @@ int main(int argc, const char * argv[]) {
 
    cl_int error;
 
+#ifdef HAVE_OPENCL
    GPUInit(&context, &queue, &is_nvidia, &program, "sort2d_kern.cl");
 
    init_kernel = clCreateKernel(program, "hash_init_cl", &error);
@@ -166,6 +169,7 @@ int main(int argc, const char * argv[]) {
    scan1_kernel = clCreateKernel(program, "scan1", &error);
    scan2_kernel = clCreateKernel(program, "scan2", &error);
    scan3_kernel = clCreateKernel(program, "scan3", &error);
+#endif
 
    printf("\n    2D Sorting Performance Results\n\n");
 #ifdef __APPLE_CC__
@@ -238,6 +242,7 @@ int main(int argc, const char * argv[]) {
             sorted_temp[ic].level = unsorted[ic].level;
          }
 
+#ifdef HAVE_OPENCL
          /* Hashsort GPU */
         cl_mem unsorted_mesh_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, ncells*sizeof(cell), NULL, &error);
         cl_mem sorted_mesh_buffer = NULL;
@@ -271,6 +276,7 @@ int main(int argc, const char * argv[]) {
         } else {
 	   printf("\tnot_run,   ");
         }
+#endif
 
 
          printf("\n");
@@ -529,6 +535,7 @@ int* hashsort2d(const category* array, category* array_sorted, int size,
 #define HASHY_PARALLEL (( powerOfTwo(levmx)*MESH_SIZE ))
 #define HASH_MAX_PARALLEL (( SQR(HASHY_PARALLEL) ))
 
+#ifdef HAVE_OPENCL
 cl_mem parallelHash(int ncells, int levmx, int mesh_size, cl_mem mesh_buffer, double *time) {
 
     cl_mem sorted_buffer, temp_buffer, ioffset_buffer;
@@ -715,4 +722,5 @@ cl_mem parallelHash(int ncells, int levmx, int mesh_size, cl_mem mesh_buffer, do
     
     return(sorted_buffer);
 }
+#endif
 
