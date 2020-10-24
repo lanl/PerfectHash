@@ -197,6 +197,16 @@ if test "${enable_opencl}" != "no"; then
              fi
            fi
          fi
+         if test "$found" = "no"; then
+           AC_CHECK_FILE(/usr/lib/x86_64-linux-gnu/libnvidia-opencl.so.1, LIBS="${LIBS} -L/usr/lib/x86_64-linux-gnu" && found="yes")
+           if test "${found}" = "yes"; then
+             if test "${RPATH_LIBS}x" = "x"; then
+               RPATH_LIBS="/usr/lib/x86_64-linux-gnu"
+             else
+               RPATH_LIBS="${RPATH_LIBS}:/usr/lib/x86_64-linux-gnu"
+             fi
+           fi
+         fi
       elif test "`lspci | grep "VGA compatible controller" | grep -i nVidia | wc -l`" != "0"; then
          found="no"
          AC_CHECK_FILE(/usr/local/NVIDIA_GPU_Computing_SDK/OpenCL/common/inc/CL/cl.h, AM_CPPFLAGS="${AM_CPPFLAGS} -I/usr/local/NVIDIA_GPU_Computing_SDK/OpenCL/common/inc" && found="yes")
